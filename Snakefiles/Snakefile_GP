@@ -1,0 +1,182 @@
+phenos = ['EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13','BW32','EW30','EW40','EW50','EW70']
+gens2 = ['all','offspring','FounderBC1','BC1','FounderBC2','BC2','IC']
+
+
+
+rule gcta_grmbin_IMAGE_QC:
+    input:
+        "INTERMEDIATE/ori/IMAGE_QC.bim",
+        "INTERMEDIATE/ori/IMAGE_QC.bed",
+        "INTERMEDIATE/ori/IMAGE_QC.fam",
+    output:
+        "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all.grm.bin",
+        "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all.grm.id",
+        "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all.grm.N.bin",
+    log:
+        "LOGS/gcta/GRM/GRM_bin_IMAGE_QC_all.log"
+    benchmark:
+        "LOGS/gcta/GRM/GRM_bin_IMAGE_QC_all.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 10 * 1000,
+        time = lambda wildcards, attempt: int(attempt) *2* 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        bfile = "INTERMEDIATE/ori/IMAGE_QC",
+        out = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all"
+    shell:
+        """
+        (
+        gcta --bfile {params.bfile} --make-grm-bin --autosome-num 40 --maf 0.01 --out {params.out}
+        ) &> {log}
+        """
+
+rule gcta_grmbin_imputed:
+    input:
+        "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+        "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+        "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+    output:
+        "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.bin",
+        "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.id",
+        "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.N.bin",
+    log:
+        "LOGS/gcta/GRM/GRM_bin_imputed_QC_all.log"
+    benchmark:
+        "LOGS/gcta/GRM/GRM_bin_imputed_QC_all.bench"
+    threads: 5
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 50 * 1000,
+        time = lambda wildcards, attempt: int(attempt) *2* 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        bfile = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC",
+        out = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all"
+    shell:
+        """
+        (
+        gcta --bfile {params.bfile} --make-grm-bin --autosome-num 40 --maf 0.01 --out {params.out}
+        ) &> {log}
+        """
+
+
+checkpoint prep_gcta_bireml:
+    input:
+        script = "SCRIPTS/prep_GCTA_bireml.r",
+        rdata = "DATA/geno/2024-04-19_IMAGEcomplete_CR_SCM_GGA6_Ref0_Alt1.RData",
+        pheno = "DATA/pheno/Phenotypes_Final.csv",
+        grmar = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all.grm.bin",
+        grmimp = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.bin",
+    output:
+        pp = "RESULTS/gcta/bireml/files/pheno.txt",
+        hsq = "RESULTS/gcta/bireml/files/filehsq.txt",
+        cmd = "RESULTS/gcta/bireml/files/commands.txt",
+    log:
+        "LOGS/gcta/bireml/prep_gcta_bireml.log"
+    benchmark:
+        "LOGS/gcta/bireml/prep_gcta_bireml.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 2 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        grmar = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all",
+        grmimp = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all"
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {input.rdata} {input.pheno} {params.grmar} {params.grmimp} {output.pp} {output.hsq} {output.cmd}
+        ) &> {log}
+        """
+
+def get_hsq_files(wildcards):
+    cp = checkpoints.prep_gcta_bireml.get(**wildcards)
+    hsq_file = cp.output.hsq
+
+    with open(hsq_file) as f:
+        return [line.strip() for line in f]
+
+
+rule gcta_bireml:
+    input:
+        script = "SCRIPTS/GCTA_bireml.r",
+        cmd = "RESULTS/gcta/bireml/files/commands.txt",
+        grmar = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all.grm.bin",
+        grmimp = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.bin",
+        pp = "RESULTS/gcta/bireml/files/pheno.txt",
+    output:
+        hsq = protected("RESULTS/gcta/bireml/{folder}/{t1}_{t2}.hsq"),
+    log:
+        "LOGS/gcta/bireml/{folder}/{t1}_{t2}.log"
+    benchmark:
+        "LOGS/gcta/bireml/{folder}/{t1}_{t2}.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20 * 1000,
+        time = lambda wildcards, attempt: int(attempt) *3* 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {output.hsq} {input.cmd}
+        ) &> {log}
+        """
+
+
+rule mark_done:
+    input:
+        hsq_files = get_hsq_files,
+    output:
+        "RESULTS/gcta/bireml/files/gcta-bireml-done.txt"
+    log:
+        "LOGS/gcta/markdone.log"
+    shell:
+        """
+        (touch {output}) &> {log}
+        """
+        
+
+
+rule gcta_reml:
+    input:
+        bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+        bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+        fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+        pheno = "DATA/pheno/{pheno}.txt",
+        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+        grmimp = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.bin",
+    output:
+        hsq = "RESULTS/gcta/reml/{pheno}/{gen}.hsq",
+    wildcard_constraints:
+        pheno = "|".join(phenos),
+        gen = "|".join(gens2)
+    log:
+        "LOGS/gcta/reml/{pheno}/{gen}.log"
+    benchmark:
+        "LOGS/gcta/reml/{pheno}/{gen}.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 3*60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        bfile = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC",
+        grm = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}",
+        out = "RESULTS/gcta/reml/{pheno}/{gen}"
+    shell:
+        """
+        (if [ ! -f {params.grm}.grm.bin ]; then
+            gcta --bfile {params.bfile} --keep {input.id} --make-grm-bin --autosome-num 40 --maf 0.01 --out {params.grm}        
+         else
+            echo "{params.grm}.grm.bin already exists. Skipping GCTA GRM creation."
+        fi
+        
+        gcta --reml --grm {params.grm} --pheno {input.pheno} --out {params.out}
+        ) &> {log}
+        """
