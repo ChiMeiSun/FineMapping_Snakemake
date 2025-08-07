@@ -124,12 +124,12 @@ for ( i in 1:nrow(datah2)){
     cl.cex <- 0.8  # Default color bar label size
     number.cex <- 1
     width = 4000
-    height = 4000
+    height = 3800
   }
   png(args[2], width=width, height=height, res=300)  
   corrplot(matcor, p.mat = mat_corppval, sig.level=0.05, 
           method='square', addCoef.col='grey1', insig='blank', diag=TRUE, na.label.col = "black",
-          tl.cex = tl.cex, cl.cex = cl.cex, number.cex = number.cex, number.font = 1, mar = c(0, 1, 2, 1),
+          tl.cex = tl.cex, cl.cex = cl.cex, number.cex = number.cex, number.font = 1,
           type='full',  is.corr = FALSE)
   # method = c("circle", "square", "ellipse", "number", "shade", "color", "pie")
   # mtext(paste0("rg_",folder,"(upper) & rp(lower)"), cex = 2, line = 1)
