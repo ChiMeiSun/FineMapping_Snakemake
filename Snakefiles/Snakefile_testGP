@@ -1,0 +1,179 @@
+phenos = ['EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13','BW32','EW30','EW40','EW50','EW70']
+gens2 = ['all','offspring','FounderBC1','BC1','FounderBC2','BC2','IC']
+
+
+rule gcta_grmbin_imputed:
+    input:
+        "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+        "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+        "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+        id = "test/RESULTS/gcta/bireml/files/IDlist_{gen}.txt"
+    output:
+        "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}.grm.bin",
+        "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}.grm.id",
+        "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}.grm.N.bin",
+    log:
+        "LOGS/test/gcta/GRM/GRM_bin_imputed_QC_{gen}.log"
+    benchmark:
+        "LOGS/test/gcta/GRM/GRM_bin_imputed_QC_{gen}.bench"
+    threads: 5
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 50 * 1000,
+        time = lambda wildcards, attempt: int(attempt) *2* 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        bfile = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC",
+        out = "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}"
+    shell:
+        """
+        set +o pipefail
+        (
+        gcta --bfile {params.bfile} --keep {input.id} --make-grm-bin --autosome-num 40 --maf 0.01 --out {params.out}
+        ) &> {log}  || true
+        """
+
+checkpoint testprep_gcta_bireml:
+    input:
+        script = "SCRIPTS/t_prep_GCTA_bireml.r",
+        rdata = "DATA/geno/2024-04-19_IMAGEcomplete_CR_SCM_GGA6_Ref0_Alt1.RData",
+        pheno = "DATA/pheno/Phenotypes_Final.csv",
+        grmimp = expand("test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}.grm.bin", gen = ['BC2IC','FBC12','IC']),
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+    output:
+        pp = "test/RESULTS/gcta/bireml/files/pheno.txt",
+        hsq = "test/RESULTS/gcta/bireml/files/filehsq.txt",
+        cmd = "test/RESULTS/gcta/bireml/files/commands.txt",
+    log:
+        "LOGS/test/gcta/bireml/prep_gcta_bireml.log"
+    benchmark:
+        "LOGS/test/gcta/bireml/prep_gcta_bireml.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 2 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        grmimp = "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_"
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {input.rdata} {input.pheno} {params.grmimp} {output.pp} {output.hsq} {output.cmd} {input.covar}
+        ) &> {log}
+        """
+
+def testget_hsq_files(wildcards):
+    cp = checkpoints.testprep_gcta_bireml.get(**wildcards)
+    hsq_file = cp.output.hsq
+
+    with open(hsq_file) as f:
+        return [line.strip() for line in f]
+
+
+rule testgcta_bireml:
+    input:
+        script = "SCRIPTS/GCTA_bireml.r",
+        cmd = "test/RESULTS/gcta/bireml/files/commands.txt",
+        grmimp = "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}.grm.bin",
+        pp = "test/RESULTS/gcta/bireml/files/pheno.txt",
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+    output:
+        hsq = protected("test/RESULTS/gcta/bireml/{gen}/{t1}_{t2}.hsq"),
+    log:
+        "LOGS/test/gcta/bireml/{gen}/{t1}_{t2}.log"
+    benchmark:
+        "LOGS/test/gcta/bireml/{gen}/{t1}_{t2}.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20 * 1000,
+        time = lambda wildcards, attempt: int(attempt) *3* 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {output.hsq} {input.cmd}
+        ) &> {log}
+        """
+
+
+rule testmark_done:
+    input:
+        hsq_files = testget_hsq_files,
+    output:
+        "test/RESULTS/gcta/bireml/files/gcta-bireml-done.txt"
+    log:
+        "LOGS/test/gcta/markdone.log"
+    shell:
+        """
+        (touch {output}) &> {log}
+        """
+        
+
+
+rule testgcta_reml:
+    input:
+        bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+        bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+        fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+        pheno = "DATA/pheno/{pheno}.txt",
+        id = "test/RESULTS/gcta/bireml/files/IDlist_{gen}.txt",
+        grmimp = "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}.grm.bin",
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+    output:
+        hsq = "test/RESULTS/gcta/reml/{pheno}/{gen}.hsq",
+    wildcard_constraints:
+        pheno = "|".join(phenos),
+        gen = "|".join(['BC2IC','FBC12','IC'])
+    log:
+        "LOGS/test/gcta/reml/{pheno}/{gen}.log"
+    benchmark:
+        "LOGS/test/gcta/reml/{pheno}/{gen}.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 3*60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        bfile = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC",
+        grm = "test/RESULTS/gcta/GRM/GRM_bin_imputed_QC_{gen}",
+        out = "test/RESULTS/gcta/reml/{pheno}/{gen}",
+        covar_flag = lambda wildcards, input: (
+            f"--covar {input.covar}" if wildcards.gen in ["BC2IC", "FBC12"] else ""
+        )   
+    shell:
+        """
+        (
+        gcta --reml --keep {input.id} --grm {params.grm} {params.covar_flag} --pheno {input.pheno} --out {params.out}
+        ) &> {log}
+        """
+
+
+
+rule testplot_PhenoCor:
+    input:
+        pheno = "DATA/pheno/Phenotypes_Final.csv",
+        script = "SCRIPTS/t_plot_PhenoCor.r",
+        #note = "test/RESULTS/gcta/bireml/files/gcta-bireml-done.txt",
+        #h2 = expand("test/RESULTS/gcta/reml/{pheno}/{gen}.hsq", pheno = phenos, gen = ['BC2IC','FBC12','IC'])
+    output:
+        p = "test/PLOTS/publish/PhenoCor{gen}.png",
+    log: "LOGS/test/plot/publish/PhenoCor{gen}.log"
+    benchmark: "LOGS/test/plot/publish/PhenoCor{gen}.bench"
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        pathbi = "test/RESULTS/gcta/bireml/{gen}",
+        pathr = "test/RESULTS/gcta/reml"
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {input.pheno} {output.p} {params.pathbi} {params.pathr} {wildcards.gen}
+        ) &> {log}
+        """

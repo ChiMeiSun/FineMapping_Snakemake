@@ -1,0 +1,363 @@
+
+checkpoint gcta_mlma_Gen:
+    input:
+        bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
+        bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
+        fam = "INTERMEDIATE/ori/IMAGE_QC.fam",
+        pheno = "DATA/pheno/{pheno}.txt",
+        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+        grm = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all.grm.bin"
+    output:
+        "RESULTS/gcta/mlma/{gen}/{pheno}_{gen}.mlma"
+    log: "LOGS/gcta/mlma/{gen}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/gcta/mlma/{gen}/{pheno}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 2
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        name = 'INTERMEDIATE/ori/IMAGE_QC',
+        out = 'RESULTS/gcta/mlma/{gen}/{pheno}_{gen}',
+        grm = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all",
+        covar_flag = lambda wildcards, input: (
+            f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
+        )
+    shell:
+        """
+        set +o pipefail
+        (gcta --mlma --bfile {params.name} --grm {params.grm} --keep {input.id} --autosome-num 40 --maf 0.01 \
+        --pheno {input.pheno} {params.covar_flag} --out {params.out}) &> {log} || true
+        """
+
+def get_files_mlma(wildcards):
+    filename = checkpoints.gcta_mlma_Gen.get(**wildcards).output[0]
+    return(filename)
+
+
+checkpoint plot_GWAS_array:
+    input:
+        mlma = get_files_mlma,
+        script = "SCRIPTS/plot_GWAS.r"
+    output:
+        manplot = "PLOTS/manplot/mlma/{gen}/{pheno}_{gen}.png"
+    log: "LOGS/plot/manplot/mlma/{gen}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/plot/manplot/mlma/{gen}/{pheno}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        (Rscript --vanilla {input.script} {input.mlma} {output.manplot} {wildcards.pheno} {wildcards.gen}) &> {log}
+        """
+
+
+rule gcta_mlma_Gen_cov:
+    input:
+        bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
+        bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
+        fam = "INTERMEDIATE/ori/IMAGE_QC.fam",
+        pheno = "DATA/pheno/{pheno}.txt",
+        covt = "DATA/pheno/{covt}.txt",
+        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+        grm = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all.grm.bin"
+    output:
+        mlmacov = "RESULTS/gcta/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.mlma",
+    log: "LOGS/gcta/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
+    benchmark: "LOGS/gcta/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 2
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) *3* 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        name = 'INTERMEDIATE/ori/IMAGE_QC',
+        out = 'RESULTS/gcta/mlma_cov/{gen}/{pheno}cov{covt}_{gen}',
+        grm = "RESULTS/gcta/GRM/GRM_bin_IMAGE_QC_all",
+        covar_flag = lambda wildcards, input: (
+            f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
+        )        
+    shell:
+        """
+        set +o pipefail
+        (
+        gcta --mlma --bfile {params.name} --grm {params.grm} --keep {input.id} --autosome-num 40 --maf 0.01 \
+        --pheno {input.pheno} {params.covar_flag} --qcovar {input.covt} --out {params.out}
+        ) &> {log} || true
+        """
+
+checkpoint plot_GWAScov_array:
+    input:
+        script = "SCRIPTS/plot_GWAS.r",
+        mlmacov = "RESULTS/gcta/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.mlma",
+    output:
+        plot = "PLOTS/manplot/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.png",
+    log: "LOGS/plot/manplot/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
+    benchmark: "LOGS/plot/manplot/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) *3* 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        set +o pipefail
+        (
+        Rscript --vanilla {input.script} {input.mlmacov} {output.plot} {wildcards.pheno}cov{wildcards.covt} {wildcards.gen}
+        ) &> {log} || true
+        """
+
+
+
+
+rule gcta_sparse_grm:
+    input:
+        bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+        bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+        fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+    output:
+        protected("RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"),
+        "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.id"
+    log: "LOGS/gcta/sparse_grm.log"  
+    benchmark: "LOGS/gcta/sparse_grm.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 10
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 80*1000,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
+        grm = 'RESULTS/gcta/fastGWA/GRM/GRM_sparse_all',
+    shell:
+        """
+        set +o pipefail
+        (
+        gcta --bfile {params.name} --make-grm --sparse-cutoff 0.05 --thread-num {threads} \
+        --out {params.grm} --autosome-num 40 --maf 0.01
+        ) &> {log} || true
+        """
+
+
+checkpoint gcta_fastGWA_impute:
+    input:
+        bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+        bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+        fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+        pheno = "DATA/pheno/{pheno}.txt",
+        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"
+    output:
+        protected("RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}.fastGWA"),
+    log: "LOGS/gcta/fastGWA/{gen}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/gcta/fastGWA/{gen}/{pheno}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 5
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 10*1000,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
+        out = 'RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}',
+        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all",
+        covar_flag = lambda wildcards, input: (
+            f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
+        )        
+    shell:
+        """
+        set +o pipefail
+        ( gcta --fastGWA-mlm --bfile {params.name} --grm-sparse {params.grm} --maf 0.01 \
+        --keep {input.id} {params.covar_flag} --autosome-num 40 --pheno {input.pheno} --out {params.out}
+        ) &> {log} || true
+        """
+
+def get_files_fastGWA_impute(wildcards):
+    filename = checkpoints.gcta_fastGWA_impute.get(**wildcards).output[0]
+    return(filename)
+
+checkpoint plot_GWAS_impute:
+    input:
+        mlma = get_files_fastGWA_impute,
+        script = "SCRIPTS/plot_GWAS.r"
+    output:
+        manplot = protected("PLOTS/manplot/fastGWA/{gen}/{pheno}_{gen}.png")
+    log: "LOGS/plot/manplot/fastGWA/{gen}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/plot/manplot/fastGWA/{gen}/{pheno}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        (Rscript --vanilla {input.script} {input.mlma} {output.manplot} {wildcards.pheno} {wildcards.gen}) &> {log}
+        """
+
+
+rule gcta_fastGWA_impute_cov:
+    input:
+        bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+        bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+        fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+        pheno = "DATA/pheno/{pheno}.txt",
+        covt = "DATA/pheno/{covt}.txt",
+        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"
+    output:
+        protected("RESULTS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.fastGWA"),
+    log: "LOGS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
+    benchmark: "LOGS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 5
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 30*1000,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
+        out = 'RESULTS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}',
+        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all",
+        covar_flag = lambda wildcards, input: (
+            f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
+        )        
+    shell:
+        """
+        set +o pipefail
+        ( gcta --fastGWA-mlm --bfile {params.name} --grm-sparse {params.grm} --maf 0.01 \
+        --keep {input.id} {params.covar_flag} --autosome-num 40 --pheno {input.pheno} --qcovar {input.covt} --out {params.out}
+        ) &> {log} || true
+        """
+
+checkpoint plot_GWAScov_impute:
+    input:
+        script = "SCRIPTS/plot_GWAS.r",
+        mlmacov = "RESULTS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.fastGWA",
+    output:
+        plot = "PLOTS/manplot/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.png",
+    log: "LOGS/plot/manplot/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
+    benchmark: "LOGS/plot/manplot/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) *3* 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        set +o pipefail
+        (
+        Rscript --vanilla {input.script} {input.mlmacov} {output.plot} {wildcards.pheno}cov{wildcards.covt} {wildcards.gen}
+        ) &> {log} || true
+        """
+
+
+# metaGWAS requires GWAS summary statistics
+rule metaGWAS:
+    input:
+        script = "SCRIPTS/metaGWAS.r",
+        fastgwa = lambda wildcards: expand(
+            "RESULTS/gcta/fastGWA/{gen}/EN{tt}_{gen}.fastGWA",
+            gen = wildcards.gen,
+            tt = [1,2,3,4,5,6,7,8,10,11,12,13]
+        )
+    output:
+        res = protected("RESULTS/metaGWAS/ENs_{gen}.txt")
+    log:
+        "LOGS/metaGWAS/ENs_{gen}.log"
+    benchmark:
+        "LOGS/metaGWAS/ENs_{gen}.bench"
+    threads: 2
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 50 * 1000,
+        time = lambda wildcards, attempt: int(attempt) *3* 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    params:
+        pathimp = "RESULTS/gcta/fastGWA",
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {params.pathimp} {output.res} {wildcards.gen}
+        ) &> {log}
+        """
+
+
+rule plot_metaGWAS:
+    input:
+        script = "SCRIPTS/plot_GWAS.r",
+        res = "RESULTS/metaGWAS/ENs_{gen}.txt",
+    output:
+        plot = "PLOTS/manplot/metaGWAS/ENs_{gen}.png",
+    log:
+        "LOGS/plot/manplot/metaGWAS/ENs_{gen}.log"
+    benchmark:
+        "LOGS/plot/manplot/metaGWAS/ENs_{gen}.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 10 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {input.res} {output.plot} ENs {wildcards.gen}
+        ) &> {log}
+        """
+
+
+rule get_sigSNP_array:
+    input:
+        script = "SCRIPTS/info_sigSNP.r",
+        mlma = "RESULTS/gcta/mlma/{gen}/{pheno}_{gen}.mlma"
+    output:
+        tab = "RESULTS/gcta/sigSNP/mlma/{gen}/{pheno}_{gen}.txt",
+    log:
+        "LOGS/gcta/sigSNP/mlma/{gen}/{pheno}_{gen}.log"
+    benchmark:
+        "LOGS/gcta/sigSNP/mlma/{gen}/{pheno}_{gen}.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 10 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {input.mlma} {output.tab}
+        ) &> {log}
+        """
+
+rule get_sigSNP_imp:
+    input:
+        script = "SCRIPTS/info_sigSNP.r",
+        fgwa = "RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}.fastGWA",
+    output:
+        tab = "RESULTS/gcta/sigSNP/fastGWA/{gen}/{pheno}_{gen}.txt",
+    log:
+        "LOGS/gcta/sigSNP/fastGWA/{gen}/{pheno}_{gen}.log"
+    benchmark:
+        "LOGS/gcta/sigSNP/fastGWA/{gen}/{pheno}_{gen}.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 10 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
+    shell:
+        """
+        (
+        Rscript --vanilla {input.script} {input.fgwa} {output.tab}
+        ) &> {log}
+        """
+
