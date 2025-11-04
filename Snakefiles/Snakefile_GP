@@ -112,6 +112,7 @@ rule gcta_bireml:
         covar = "INTERMEDIATE/covar/covar_gcta.txt",
     output:
         hsq = protected("RESULTS/gcta/bireml/{folder}/{t1}_{t2}.hsq"),
+        log = protected("RESULTS/gcta/bireml/{folder}/{t1}_{t2}.log"),
     log:
         "LOGS/gcta/bireml/{folder}/{t1}_{t2}.log"
     benchmark:
