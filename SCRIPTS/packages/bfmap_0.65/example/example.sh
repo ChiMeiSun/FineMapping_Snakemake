@@ -1,4 +1,3 @@
-cd IMAGE_Publish/SCRIPTS/packages/bfmap_0.65/example
 
 ../bfmap --compute_grm 1 --binary_genotype_file geno --snp_info_file all.snp_info.csv --output grm1 --num_threads 10
 
