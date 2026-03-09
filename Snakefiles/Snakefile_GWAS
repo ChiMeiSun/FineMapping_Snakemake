@@ -361,3 +361,37 @@ rule get_sigSNP_imp:
         ) &> {log}
         """
 
+checkpoint gcta_mlmaloco_Gen:
+    input:
+        bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
+        bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
+        fam = "INTERMEDIATE/ori/IMAGE_QC.fam",
+        pheno = "DATA/pheno/{pheno}.txt",
+        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+    output:
+        "RESULTS/gcta/mlma-loco/{gen}/{pheno}_{gen}.loco.mlma"
+    log: "LOGS/gcta/mlma-loco/{gen}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/gcta/mlma-loco/{gen}/{pheno}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 2
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        name = 'INTERMEDIATE/ori/IMAGE_QC',
+        out = 'RESULTS/gcta/mlma-loco/{gen}/{pheno}_{gen}',
+        covar_flag = lambda wildcards, input: (
+            f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
+        )
+    shell:
+        """
+        set +o pipefail
+        (gcta --mlma-loco --bfile {params.name} --keep {input.id} --autosome-num 40 --maf 0.01 \
+        --pheno {input.pheno} {params.covar_flag} --out {params.out}) &> {log} || true
+        """
+
+def get_files_mlma(wildcards):
+    filename = checkpoints.gcta_mlma_Gen.get(**wildcards).output[0]
+    return(filename)

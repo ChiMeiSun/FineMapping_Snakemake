@@ -267,6 +267,33 @@ rule plot_MAFimp:
         ) &> {log}
         """
 
+rule PCA_array:
+    input:
+        bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
+        bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
+        fam = "INTERMEDIATE/ori/IMAGE_QC.fam",
+    output:
+        eivec = "RESULTS/PCA/array/IMAGE_QC_pruned.eigenvec",
+        eival = "RESULTS/PCA/array/IMAGE_QC_pruned.eigenval",
+    log: "LOGS/PCA/array.log"  
+    benchmark: "LOGS/PCA/array.bench" 
+    conda: "IMAGE_SCM"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *30* 1000,
+        time = lambda wildcards, attempt: int(attempt) *3* 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        arg = "--allow-extra-chr --chr-set 40 --set-missing-var-ids @:#",
+        name = "INTERMEDIATE/ori/IMAGE_QC",
+        out = "RESULTS/PCA/array/IMAGE_QC"
+    shell:
+        """
+        set +o pipefail
+        (plink --bfile {params.name} {params.arg} --indep-pairwise 100 50 0.3 --threads {threads} --out {params.out}
+          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 5 --threads {threads} --out {params.out}_pruned
+        ) &> {log} || true
+        """
 
 rule PCA_impute:
     input:
