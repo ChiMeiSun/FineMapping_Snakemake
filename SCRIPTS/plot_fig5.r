@@ -1,4 +1,4 @@
-# args = c("PLOTS/manplot/metaGWAS/ENlate_all.png", "PLOTS/publish/fig5.png")
+# args = c("PLOTS/manplot/metaGWAS/ENs_all.png", "PLOTS/publish/fig5.png")
 
 args = commandArgs(TRUE)
 args
@@ -6,7 +6,6 @@ args
 library(magick)
 library(data.table)
 
-# Fig. 4 metaGWAS of EN3-EN13
 files = args
 files = files[-length(files)]
 rows = ceiling( (length(files)) / 3)

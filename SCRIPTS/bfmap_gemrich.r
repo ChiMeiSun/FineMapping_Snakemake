@@ -3,7 +3,7 @@
 # devtools::install_github("jiang18/gemrich")
 # install.packages("ggnewscale")
 
-# args = c("RESULTS/BFMAP/BW32/credsets_BW32_all.txt",      
+# args <- c("RESULTS/BFMAP/BW32/credsets_BW32_all.txt",      
 # "RESULTS/BFMAP/BW32/vep_BW32_all.vcf",               
 # "DATA/geno/ensembl_genes_GRCg6a.txt",                
 # "RESULTS/BFMAPrecalc/BW32/credsets_BW32_all.txt",    
@@ -11,6 +11,15 @@
 # "RESULTS/BFMAPrecalc/BW32/enrichcat_BW32_all.txt",   
 # "RESULTS/BFMAPrecalc/BW32/geneprobsori_BW32_all.txt",
 # "PLOTS/BFMAP/BW32/recalc_BW32_all.pdf")
+
+# args <- c("RESULTS/BFMAP/EN3/credsets_EN3_all.txt",      
+# "RESULTS/BFMAP/EN3/vep_EN3_all.vcf",               
+# "DATA/geno/ensembl_genes_GRCg6a.txt",                
+# "RESULTS/BFMAPrecalc/EN3/credsets_EN3_all.txt",    
+# "RESULTS/BFMAPrecalc/EN3/geneprobs_EN3_all.txt",   
+# "RESULTS/BFMAPrecalc/EN3/enrichcat_EN3_all.txt",   
+# "RESULTS/BFMAPrecalc/EN3/geneprobsori_EN3_all.txt",
+# "PLOTS/BFMAP/EN3/recalc_EN3_all.pdf")
 args <- commandArgs(TRUE)
 args
 
@@ -31,24 +40,31 @@ library(stringr)
 # ?calc_snp_category_prop
 
 
-
+credp <- args[1]
+vepp <- args[2]
+genep <- args[3]
+outcred <- args[4]
+outgp <- args[5]
+outerh <- args[6]
+outgpori <- args[7]
+outplot <- args[8]
 
 
 ##### read data #####
-credset <- fread(args[1])
+credset <- fread(credp)
 
-vep <- fread(args[2], skip = "#Uploaded_variation")
+vep <- fread(vepp, skip = "#Uploaded_variation")
 colnames(vep)[1] <- "SNPname"
 # check
 # snps = credset[(duplicated(credset$SNPname)), SNPname]
 # credset[SNPname %in% snps]
 
-genes = fread(args[3])
+genes = fread(genep)
 colnames(genes) <- c("chr","start","end","gene_id","gene_id_ver","gene_name","strand","GOterm_acc","GOterm_name")
 unigenes <- genes[, .SD[1], by = gene_id] # keep only unique variants
 
-tragen <- sub(".*credsets_(.*)\\.txt", "\\1", args[1])
-regions <- readLines(args[1], n = 1)
+tragen <- sub(".*credsets_(.*)\\.txt", "\\1", credp)
+regions <- readLines(credp, n = 1)
 regions <- unlist(strsplit(sub("#", "", regions), ","))
 
 svep <- vep[, .(SNPname, Consequence, Extra)]
@@ -56,23 +72,24 @@ svep[, IMPACT := str_extract(Extra, "(?<=IMPACT=)[^;]+")]
 svep[, BIOTYPE := str_extract(Extra, "(?<=BIOTYPE=)[^;]+")]
 svep <- svep[,-c("Extra")]
 
-path = dirname(args[1])
+path <- dirname(credp)
 
 cats <- c("Consequence", "IMPACT","BIOTYPE")
 # VEP impact ranking: lower number = higher impact
 impact_priority <- c(
-  "splice_region_variant" = 1,
-  "splice_polypyrimidine_tract_variant" = 2,
-  "missense_variant" = 3,
-  "synonymous_variant" = 4,
-  "5_prime_UTR_variant" = 5,
-  "3_prime_UTR_variant" = 6,
-  "non_coding_transcript_exon_variant" = 7,
-  "non_coding_transcript_variant" = 8,
-  "intron_variant" = 9,
-  "upstream_gene_variant" = 10,
-  "downstream_gene_variant" = 11,
-  "intergenic_variant" = 12
+  "missense_variant" = 1,
+  "splice_donor_5th_base_variant" = 2,
+  "splice_region_variant" = 3,
+  "splice_polypyrimidine_tract_variant" = 4,
+  "synonymous_variant" = 5,
+  "5_prime_UTR_variant" = 6,
+  "3_prime_UTR_variant" = 7,
+  "non_coding_transcript_exon_variant" = 8,
+  "non_coding_transcript_variant" = 9,
+  "intron_variant" = 10,
+  "upstream_gene_variant" = 11,
+  "downstream_gene_variant" = 12,
+  "intergenic_variant" = 13
 )
 
 # plot & write table
@@ -105,7 +122,7 @@ make_mle_fail <- function(unisnpannot, cat, reason = 0) {
   return(res)
 }
 
-pdf(args[length(args)], width = 15, height = 9)
+pdf(outplot, width = 15, height = 9)
 
 ##### calculation by each chromosome #####
 for (i in 1:length(regions)){
@@ -189,7 +206,7 @@ for (i in 1:length(regions)){
       cat_prop_c <- as.data.table(tab / nrow(unisnpannot))
       colnames(cat_prop_c) = c("category", "prop")
       sparse_cats <- cat_prop_c[prop < min_p, category]
-      if (length(sparse_cats) == 1) {sparse_cats = NULL}
+      if (length(sparse_cats) == 1) sparse_cats = NULL
       unisnpannot[, multi_cat := ifelse(multi_cat %in% sparse_cats, "remaining", multi_cat)]
       
       tab <- table(unisnpannot$multi_cat)
@@ -404,7 +421,7 @@ gene_probs_ori <- rbindlist(gene_probs_ori, fill = TRUE)
 mle <- rbindlist(mle, fill = TRUE)
 setcolorder(mle, c("data", "QTL", "cat_group", "category", "mle_status", "reason"))
 
-write.table(renormed_bfmap, args[4], quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")
-write.table(gene_probs, args[5], quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")
-write.table(mle, args[6], quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t", na="")
-write.table(gene_probs_ori, args[7], quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")
+write.table(renormed_bfmap, outcred, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")
+write.table(gene_probs, outgp, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")
+write.table(mle, outerh, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t", na="")
+write.table(gene_probs_ori, outgpori, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")

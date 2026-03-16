@@ -8,8 +8,8 @@ library(data.table)
 
 load(args[1])
 PED <- setDT(PED)
-covar <- PED[, .(Patient_ID, Generation)]
+covar <- PED[, .(Patient_ID, Patient_ID, Generation)]
 
 
-write.table(cbind("IM", covar), args[2], sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+write.table(covar, args[2], sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 write.csv(covar, args[3], quote = FALSE, row.names = FALSE)

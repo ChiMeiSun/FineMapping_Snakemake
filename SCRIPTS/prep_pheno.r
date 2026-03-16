@@ -1,6 +1,6 @@
 # for gcta analysis the phenotype file: famID, IID, phenotypes columns
 
-# args <-  {input.rdata} {input.pheno} {output.out} {wildcards.pheno}
+# args <-  c("DATA/geno/2024-04-19_IMAGEcomplete_CR_SCM_GGA6_Ref0_Alt1.RData", "DATA/pheno/Phenotypes_Final.csv", "DATA/pheno/BW32.txt", "BW32")
 args <- commandArgs(TRUE)
 args
 
@@ -15,9 +15,6 @@ trait = args[4]
 meta = merge(PED[,c("Patient_ID","kml")], pheno[,c("kml",..trait)], by = "kml")
 colnames(meta)
 setDT(meta)
-meta[, kml := substr(Patient_ID, 1, 2)]
-sum(is.na(meta[,3]))
 meta = meta[!which(is.na(meta[,3])),]
-dim(meta)
-
+meta[, kml := Patient_ID]
 write.table(meta, args[3], quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")

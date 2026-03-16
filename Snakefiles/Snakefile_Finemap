@@ -1,10 +1,13 @@
+phenos = ['EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13','BW32','EW30','EW40','EW50','EW70']
+
+
 import pandas as pd
 import re
 
 checkpoint get_QTLs:
     input:
         script="SCRIPTS/get_QTLs.r",
-        fgwa = "RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}.fastGWA",
+        mlma = "RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma",
         metagwa = "RESULTS/metaGWAS/ENs_all.txt"
     output:
         qtl = "RESULTS/BFMAP/{pheno}/QTLs_{pheno}_{gen}.txt",
@@ -20,7 +23,7 @@ checkpoint get_QTLs:
         maxlength = 11000000
     shell:
         """
-        (Rscript --vanilla {input.script} {input.fgwa} {input.metagwa} {output.qtl} {params.maxlength} ) &> {log}
+        (Rscript --vanilla {input.script} {input.mlma} {wildcards.pheno} {input.metagwa} {output.qtl} {params.maxlength} ) &> {log}
         """
         
 
@@ -31,7 +34,7 @@ def get_fs_files(qtl_file, pheno, gen):
 
     fs_files = []
     for _, row in df.iterrows():
-        region = f"{int(row['CHR'])}:{int(row['exdst'])}-{int(row['exded'])}"
+        region = f"{int(row['Chr'])}:{int(row['exdst'])}-{int(row['exded'])}"
         path = f"RESULTS/BFMAP/{pheno}/FS/{region}_{pheno}_{gen}.csv"
         fs_files.append(path.replace(" ", ""))
     return fs_files
@@ -42,7 +45,7 @@ def get_vc_files(qtl_file, pheno, gen):
 
     vc_files = []
     for _, row in df.iterrows():
-        region = f"{int(row['CHR'])}:{int(row['exdst'])}-{int(row['exded'])}"
+        region = f"{int(row['Chr'])}:{int(row['exdst'])}-{int(row['exded'])}"
         path = f"RESULTS/BFMAP/{pheno}/VC/{region}_{pheno}_{gen}.varcomp.csv"
         vc_files.append(path.replace(" ", ""))
     return vc_files
@@ -164,7 +167,7 @@ rule BFMAP_gen:
 rule plot_BFMAP_pheno_gen:
     input:
         script="SCRIPTS/plot_bfmap.r",
-        mlma="RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}.fastGWA",
+        mlma="RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma",
         genes = "DATA/geno/ensembl_genes_GRCg6a.txt",
         qtl = "RESULTS/BFMAP/{pheno}/QTLs_{pheno}_{gen}.txt",
         fs = lambda wildcards: get_fs_files(checkpoints.get_QTLs.get(pheno=wildcards.pheno, gen=wildcards.gen).output.qtl, wildcards.pheno, wildcards.gen),
@@ -208,7 +211,7 @@ rule VEP_BFMAP:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     shell:
         """
-        (Rscript --vanilla {input.script} {input.cred} {input.vcf} {output.vep}) &> {log}
+        (Rscript --vanilla {input.script} {input.cred} {input.vcf} {output.vep} {wildcards.pheno} {wildcards.gen}) &> {log}
         """
 
 
@@ -225,6 +228,8 @@ rule plot_BFMAP_gemrich:
         erh = "RESULTS/BFMAPrecalc/{pheno}/enrichcat_{pheno}_{gen}.txt",    
         gpori = "RESULTS/BFMAPrecalc/{pheno}/geneprobsori_{pheno}_{gen}.txt",    
         pdf = "PLOTS/BFMAP/{pheno}/recalc_{pheno}_{gen}.pdf"    
+    wildcard_constraints:
+        pheno = "|".join(phenos),
     log: "LOGS/plot/BFMAPrecalc/{pheno}_{gen}.log"  
     benchmark: "LOGS/plot/BFMAPrecalc/{pheno}_{gen}.bench" 
     conda: "IMAGE_SCM"
@@ -236,4 +241,191 @@ rule plot_BFMAP_gemrich:
     shell:
         """
         (Rscript --vanilla {input.script} {input.cred} {input.vep} {input.gene} {output.cs} {output.gp} {output.erh} {output.gpori} {output.pdf}) &> {log}
+        """
+
+rule plot_BFMAP_gemrich_ENs:
+    input:
+        script = "SCRIPTS/bfmap_gemrich_tts.r",
+        cred = "RESULTS/BFMAP/EN1/credsets_EN1_{gen}.txt",
+        vep = "RESULTS/BFMAP/EN1/vep_EN1_{gen}.vcf",
+        gene = "DATA/geno/ensembl_genes_GRCg6a.txt",
+    output:
+        cs = "RESULTS/BFMAPrecalc/ENs/credsets_ENs_{gen}.txt",    
+        gp = "RESULTS/BFMAPrecalc/ENs/geneprobs_ENs_{gen}.txt",    
+        erh = "RESULTS/BFMAPrecalc/ENs/enrichcat_ENs_{gen}.txt",    
+        gpori = "RESULTS/BFMAPrecalc/ENs/geneprobsori_ENs_{gen}.txt",    
+        pdf = "PLOTS/BFMAP/ENs/recalc_ENs_{gen}.pdf"    
+    log: "LOGS/plot/BFMAPrecalc/ENs_{gen}.log"  
+    benchmark: "LOGS/plot/BFMAPrecalc/ENs_{gen}.bench" 
+    conda: "IMAGE_SCM"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *40* 1000,
+        time = lambda wildcards, attempt: int(attempt) *5* 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        (Rscript --vanilla {input.script} {input.cred} {input.vep} {input.gene} {output.cs} {output.gp} {output.erh} {output.gpori} {output.pdf}) &> {log}
+        """
+
+rule plot_BFMAP_gemrich_BWEW:
+    input:
+        script = "SCRIPTS/bfmap_gemrich_tts.r",
+        cred = "RESULTS/BFMAP/BW32/credsets_BW32_{gen}.txt",
+        vep = "RESULTS/BFMAP/BW32/vep_BW32_{gen}.vcf",
+        gene = "DATA/geno/ensembl_genes_GRCg6a.txt",
+    output:
+        cs = "RESULTS/BFMAPrecalc/BWEW/credsets_BWEW_{gen}.txt",    
+        gp = "RESULTS/BFMAPrecalc/BWEW/geneprobs_BWEW_{gen}.txt",    
+        erh = "RESULTS/BFMAPrecalc/BWEW/enrichcat_BWEW_{gen}.txt",    
+        gpori = "RESULTS/BFMAPrecalc/BWEW/geneprobsori_BWEW_{gen}.txt",    
+        pdf = "PLOTS/BFMAP/BWEW/recalc_BWEW_{gen}.pdf"    
+    log: "LOGS/plot/BFMAPrecalc/BWEW_{gen}.log"  
+    benchmark: "LOGS/plot/BFMAPrecalc/BWEW_{gen}.bench" 
+    conda: "IMAGE_SCM"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *40* 1000,
+        time = lambda wildcards, attempt: int(attempt) *5* 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        (Rscript --vanilla {input.script} {input.cred} {input.vep} {input.gene} {output.cs} {output.gp} {output.erh} {output.gpori} {output.pdf}) &> {log}
+        """
+
+rule prep_FINEMAP:
+    input:
+        script = "SCRIPTS/prep_FINEMAP.r",
+        qtl = "RESULTS/BFMAP/{pheno}/QTLs_{pheno}_{gen}.txt",
+        mlma = "RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma",
+        fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+        pheno = "DATA/pheno/{pheno}.txt",
+    output:
+        masterLD = "RESULTS/FINEMAP/{pheno}/{gen}/masterLD",
+        masterFM_sss = "RESULTS/FINEMAP/{pheno}/{gen}/sss/masterFM",
+        masterFM_cond = "RESULTS/FINEMAP/{pheno}/{gen}/cond/masterFM",
+        # qtlfolders = "RESULTS/FINEMAP/{pheno}/{gen}/qtlregion/",
+    params:
+        outp = "RESULTS/FINEMAP/{pheno}/{gen}"
+    log: "LOGS/FINEMAP/prep/{pheno}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/FINEMAP/prep/{pheno}/{pheno}_{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *10* 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        set +o pipefail
+        (Rscript --vanilla {input.script} {input.qtl} {input.mlma} {input.fam} {input.id} {input.pheno} {params.outp} {threads}) &> {log} || true
+        """
+
+rule LDstore:
+    input:
+        softpathLD = "SCRIPTS/packages/ldstore_v2.0_x86_64/ldstore",
+        masterLD = "RESULTS/FINEMAP/{pheno}/{gen}/masterLD",
+        bgen = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen"),
+        bgi = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen.bgi"),
+        sample = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.sample"),
+    output:
+        dummy = "RESULTS/FINEMAP/{pheno}/{gen}/LDstore.done",
+    log: "LOGS/LDstore/{pheno}/{gen}.log"  
+    benchmark: "LOGS/LDstore/{pheno}/{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 10
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *100* 1000,
+        time = lambda wildcards, attempt: int(attempt) * 24*60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        (/usr/bin/time -v {input.softpathLD} --in-files {input.masterLD} --write-bcor --read-only-bgen --n-threads {threads}
+         {input.softpathLD} --in-files {input.masterLD} --bcor-to-text
+
+         touch {output.dummy}
+        ) &> {log}
+        """
+
+rule FINEMAP_sss:
+    input:
+        softpathFM = "SCRIPTS/packages/finemap_v1.4.2_x86_64/finemap",
+        masterFM = "RESULTS/FINEMAP/{pheno}/{gen}/sss/masterFM",
+        bgen = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen"),
+        bgi = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen.bgi"),
+        sample = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.sample"),
+        dummy = "RESULTS/FINEMAP/{pheno}/{gen}/LDstore.done",
+    output:
+        dummy = "RESULTS/FINEMAP/{pheno}/{gen}/sss/FINEMAP.done",
+    log: "LOGS/FINEMAP/{pheno}/{gen}.log"  
+    benchmark: "LOGS/FINEMAP/{pheno}/{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 5
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *50* 1000,
+        time = lambda wildcards, attempt: int(attempt) * 24*60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        (
+         touch {output.dummy}
+         {input.softpathFM} --in-files {input.masterFM} --sss --n-threads {threads}
+        ) &> {log}
+        """
+
+rule FINEMAP_cond:
+    input:
+        softpathFM = "SCRIPTS/packages/finemap_v1.4.2_x86_64/finemap",
+        masterFM = "RESULTS/FINEMAP/{pheno}/{gen}/cond/masterFM",
+        bgen = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen"),
+        bgi = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen.bgi"),
+        sample = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.sample"),
+        dummy = "RESULTS/FINEMAP/{pheno}/{gen}/LDstore.done",
+    output:
+        dummy = "RESULTS/FINEMAP/{pheno}/{gen}/cond/FINEMAP.done",
+    log: "LOGS/FINEMAP/{pheno}/{gen}.log"  
+    benchmark: "LOGS/FINEMAP/{pheno}/{gen}.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *50* 1000,
+        time = lambda wildcards, attempt: int(attempt) * 24*60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        (
+         touch {output.dummy}
+         {input.softpathFM} --in-files {input.masterFM} --cond
+         
+        ) &> {log}
+        """
+
+
+
+rule plot_FINEMAP:
+    input:
+        script = "SCRIPTS/plot_FINEMAP.r",
+        masterFM_sss = "RESULTS/FINEMAP/{pheno}/{gen}/sss/masterFM",
+        masterFM_cond = "RESULTS/FINEMAP/{pheno}/{gen}/cond/masterFM",
+        gene = "DATA/geno/ensembl_genes_GRCg6a.txt",
+        mlma = "RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma",
+        dummy1 = "RESULTS/FINEMAP/{pheno}/{gen}/LDstore.done",
+        dummy2 = "RESULTS/FINEMAP/{pheno}/{gen}/sss/FINEMAP.done",
+        dummy3 = "RESULTS/FINEMAP/{pheno}/{gen}/cond/FINEMAP.done",
+    output:
+        plot = "PLOTS/FINEMAP/{pheno}/{gen}/data.pdf",
+    log: "LOGS/PLOTS/FINEMAP/{pheno}/{gen}/data.log"  
+    benchmark: "LOGS/PLOTS/FINEMAP/{pheno}/{gen}/data.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *80* 1000,
+        time = lambda wildcards, attempt: int(attempt) * 3*60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        ( Rscript --vanilla {input.script} {input.masterFM_sss} {input.masterFM_cond} {input.gene} {input.mlma} \
+        {output}
+        ) &> {log}
         """

@@ -1,6 +1,6 @@
 
-# args = "PLOTS/manplot/combine/arrimp/BW32.png"
-# args = "PLOTS/manplot/combine/arrimp_cov/BW32covEW30.png"
+# args = c("PLOTS/manplot/combine/arrimp/BW32.png", "PLOTS/manplot/mlma", "PLOTS/manplot/mlma_impute")
+# args = c("PLOTS/manplot/combine/arrimp_cov/BW32covEW30.png", "PLOTS/manplot/mlma_cov", "PLOTS/manplot/mlmaimp_cov")
 
 args <- commandArgs(TRUE)
 args
@@ -9,42 +9,26 @@ args
 library(magick)
 library(data.table)
 
-# PLOTS/manplot/mlma/{gen}/{pheno}_{gen}.png
-# PLOTS/manplot/fastGWA/{gen}/{pheno}_{gen}.png
-path = "PLOTS/manplot/"
-group = unlist(strsplit(args[1],"/"))[4]
-group
+outplot <- args[1]
+pathar <- args[2]
+pathimp <- args[3]
+group <- unlist(strsplit(outplot,"/"))[4]
+
+# path/{gen}/{pheno}_{gen}.png
 gens = c("all", "offspring", "IC", "BC2", "BC1", "FounderBC2", "FounderBC1")
 
-if (group == "arrimp"){
-    phe = unlist(strsplit(args[1],"/"))[5]
-    phe = sub(".png", "", phe)
+phe = unlist(strsplit(outplot,"/"))[5]
+phe = sub(".png", "", phe)
 
-    files_arr = c()
-    files_imp = c()
-    for (g in gens){
-        f1 = paste0(path,"mlma/",g,"/",phe,"_",g,".png")
-        f2 = paste0(path,"fastGWA/",g,"/",phe,"_",g,".png")
-        files_arr = c(files_arr, f1)
-        files_imp = c(files_imp, f2)
-    }
+files_arr = c()
+files_imp = c()
+for (g in gens){
+    f1 = sprintf("%s/%s/%s_%s.png", pathar, g, phe, g)
+    f2 = sprintf("%s/%s/%s_%s.png", pathimp, g, phe, g)
+    files_arr = c(files_arr, f1)
+    files_imp = c(files_imp, f2)
 }
 
-# PLOTS/manplot/mlma_cov/{gen}/{pheno}_{gen}.png
-# PLOTS/manplot/fastGWA_cov/{gen}/{pheno}_{gen}.png
-if (group == "arrimp_cov"){
-    phe = unlist(strsplit(args[1],"/"))[5]
-    phe = sub(".png", "", phe)
-
-    files_arr = c()
-    files_imp = c()
-    for (g in gens){
-        f1 = paste0(path,"mlma_cov/",g,"/",phe,"_",g,".png")
-        f2 = paste0(path,"fastGWA_cov/",g,"/",phe,"_",g,".png")
-        files_arr = c(files_arr, f1)
-        files_imp = c(files_imp, f2)
-    }
-}
 
 # read in figures
 list_arr = list()
@@ -90,5 +74,5 @@ montage_info <- image_info(comb)
 subtitle_image <- image_blank(width = montage_info$width, height = montage_info$height/20, color = 'white')
 
 comb <- image_append(c(subtitle_image,comb), stack = TRUE)
-image_write(comb, path = args[1], format = "png")
+image_write(comb, path = outplot, format = "png")
 

@@ -1,5 +1,5 @@
 
-checkpoint gcta_mlma_Gen:
+checkpoint gcta_mlma_array:
     input:
         bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
         bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
@@ -33,7 +33,7 @@ checkpoint gcta_mlma_Gen:
         """
 
 def get_files_mlma(wildcards):
-    filename = checkpoints.gcta_mlma_Gen.get(**wildcards).output[0]
+    filename = checkpoints.gcta_mlma_array.get(**wildcards).output[0]
     return(filename)
 
 
@@ -57,7 +57,7 @@ checkpoint plot_GWAS_array:
         """
 
 
-rule gcta_mlma_Gen_cov:
+rule gcta_mlma_array_cov:
     input:
         bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
         bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
@@ -118,35 +118,34 @@ checkpoint plot_GWAScov_array:
 
 
 
-rule gcta_sparse_grm:
-    input:
-        bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
-        bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
-        fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
-    output:
-        protected("RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"),
-        "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.id"
-    log: "LOGS/gcta/sparse_grm.log"  
-    benchmark: "LOGS/gcta/sparse_grm.bench" 
-    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
-    threads: 10
-    resources:
-        mem_mb = lambda wildcards, attempt: int(attempt) * 80*1000,
-        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
-    params:
-        name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
-        grm = 'RESULTS/gcta/fastGWA/GRM/GRM_sparse_all',
-    shell:
-        """
-        set +o pipefail
-        (
-        gcta --bfile {params.name} --make-grm --sparse-cutoff 0.05 --thread-num {threads} \
-        --out {params.grm} --autosome-num 40 --maf 0.01
-        ) &> {log} || true
-        """
+# rule gcta_sparse_grm:
+#     input:
+#         bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+#         bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+#         fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+#     output:
+#         protected("RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"),
+#         "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.id"
+#     log: "LOGS/gcta/sparse_grm.log"  
+#     benchmark: "LOGS/gcta/sparse_grm.bench" 
+#     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+#     threads: 10
+#     resources:
+#         mem_mb = lambda wildcards, attempt: int(attempt) * 80*1000,
+#         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+#     params:
+#         name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
+#         grm = 'RESULTS/gcta/fastGWA/GRM/GRM_sparse_all',
+#     shell:
+#         """
+#         set +o pipefail
+#         (
+#         gcta --bfile {params.name} --make-grm --sparse-cutoff 0.05 --thread-num {threads} \
+#         --out {params.grm} --autosome-num 40 --maf 0.01
+#         ) &> {log} || true
+#         """
 
-
-checkpoint gcta_fastGWA_impute:
+checkpoint gcta_mlma_impute:
     input:
         bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
         bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
@@ -154,43 +153,77 @@ checkpoint gcta_fastGWA_impute:
         pheno = "DATA/pheno/{pheno}.txt",
         id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
         covar = "INTERMEDIATE/covar/covar_gcta.txt",
-        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"
+        grm = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.bin",
     output:
-        protected("RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}.fastGWA"),
-    log: "LOGS/gcta/fastGWA/{gen}/{pheno}_{gen}.log"  
-    benchmark: "LOGS/gcta/fastGWA/{gen}/{pheno}_{gen}.bench" 
+        protected("RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma"),
+    log: "LOGS/gcta/mlma_impute/{gen}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/gcta/mlma_impute/{gen}/{pheno}_{gen}.bench" 
     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
     threads: 5
     resources:
-        mem_mb = lambda wildcards, attempt: int(attempt) * 10*1000,
+        mem_mb = lambda wildcards, attempt: int(attempt) * 50*1000,
+        time = lambda wildcards, attempt: int(attempt) *24* 60,
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     params:
         name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
-        out = 'RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}',
-        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all",
+        out = 'RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}',
+        grm = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all",
         covar_flag = lambda wildcards, input: (
             f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
         )        
     shell:
         """
         set +o pipefail
-        ( gcta --fastGWA-mlm --bfile {params.name} --grm-sparse {params.grm} --maf 0.01 \
-        --keep {input.id} {params.covar_flag} --autosome-num 40 --pheno {input.pheno} --out {params.out}
-        ) &> {log} || true
+        (gcta --mlma --bfile {params.name} --grm {params.grm} --keep {input.id} --autosome-num 40 --maf 0.01 \
+        --pheno {input.pheno} {params.covar_flag} --out {params.out} --threads {threads}) &> {log} || true
         """
 
-def get_files_fastGWA_impute(wildcards):
-    filename = checkpoints.gcta_fastGWA_impute.get(**wildcards).output[0]
+        
+# checkpoint gcta_fastGWA_impute:
+#     input:
+#         bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
+#         bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
+#         fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
+#         pheno = "DATA/pheno/{pheno}.txt",
+#         id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+#         covar = "INTERMEDIATE/covar/covar_gcta.txt",
+#         grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"
+#     output:
+#         protected("RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}.fastGWA"),
+#     log: "LOGS/gcta/fastGWA/{gen}/{pheno}_{gen}.log"  
+#     benchmark: "LOGS/gcta/fastGWA/{gen}/{pheno}_{gen}.bench" 
+#     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+#     threads: 5
+#     resources:
+#         mem_mb = lambda wildcards, attempt: int(attempt) * 10*1000,
+#         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+#     params:
+#         name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
+#         out = 'RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}',
+#         grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all",
+#         covar_flag = lambda wildcards, input: (
+#             f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
+#         )        
+#     shell:
+#         """
+#         set +o pipefail
+#         ( gcta --fastGWA-mlm --bfile {params.name} --grm-sparse {params.grm} --maf 0.01 \
+#         --keep {input.id} {params.covar_flag} --autosome-num 40 --pheno {input.pheno} --out {params.out}
+#         ) &> {log} || true
+#         """
+
+def get_files_mlma_impute(wildcards):
+    filename = checkpoints.gcta_mlma_impute.get(**wildcards).output[0]
     return(filename)
 
 checkpoint plot_GWAS_impute:
     input:
-        mlma = get_files_fastGWA_impute,
+        mlma = get_files_mlma_impute,
         script = "SCRIPTS/plot_GWAS.r"
     output:
-        manplot = protected("PLOTS/manplot/fastGWA/{gen}/{pheno}_{gen}.png")
-    log: "LOGS/plot/manplot/fastGWA/{gen}/{pheno}_{gen}.log"  
-    benchmark: "LOGS/plot/manplot/fastGWA/{gen}/{pheno}_{gen}.bench" 
+        manplot = protected("PLOTS/manplot/mlma_impute/{gen}/{pheno}_{gen}.png")
+    log: "LOGS/plot/manplot/mlma_impute/{gen}/{pheno}_{gen}.log"  
+    benchmark: "LOGS/plot/manplot/mlma_impute/{gen}/{pheno}_{gen}.bench" 
     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
     threads: 1
     resources:
@@ -203,7 +236,7 @@ checkpoint plot_GWAS_impute:
         """
 
 
-rule gcta_fastGWA_impute_cov:
+rule gcta_mlma_impute_cov:
     input:
         bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
         bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
@@ -212,11 +245,11 @@ rule gcta_fastGWA_impute_cov:
         covt = "DATA/pheno/{covt}.txt",
         id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
         covar = "INTERMEDIATE/covar/covar_gcta.txt",
-        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all.grm.sp"
+        grm = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all.grm.bin",
     output:
-        protected("RESULTS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.fastGWA"),
-    log: "LOGS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
-    benchmark: "LOGS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
+        protected("RESULTS/gcta/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.mlma"),
+    log: "LOGS/gcta/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
+    benchmark: "LOGS/gcta/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
     threads: 5
     resources:
@@ -224,27 +257,26 @@ rule gcta_fastGWA_impute_cov:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     params:
         name = 'INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC',
-        out = 'RESULTS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}',
-        grm = "RESULTS/gcta/fastGWA/GRM/GRM_sparse_all",
+        out = 'RESULTS/gcta/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}',
+        grm = "RESULTS/gcta/GRM/GRM_bin_imputed_QC_all",
         covar_flag = lambda wildcards, input: (
             f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
         )        
     shell:
         """
         set +o pipefail
-        ( gcta --fastGWA-mlm --bfile {params.name} --grm-sparse {params.grm} --maf 0.01 \
-        --keep {input.id} {params.covar_flag} --autosome-num 40 --pheno {input.pheno} --qcovar {input.covt} --out {params.out}
-        ) &> {log} || true
+        (gcta --mlma --bfile {params.name} --grm {params.grm} --keep {input.id} --autosome-num 40 --maf 0.01 \
+        --pheno {input.pheno} {params.covar_flag} --qcovar {input.covt} --out {params.out} --threads {threads}) &> {log} || true
         """
 
 checkpoint plot_GWAScov_impute:
     input:
         script = "SCRIPTS/plot_GWAS.r",
-        mlmacov = "RESULTS/gcta/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.fastGWA",
+        mlmacov = "RESULTS/gcta/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.mlma",
     output:
-        plot = "PLOTS/manplot/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.png",
-    log: "LOGS/plot/manplot/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
-    benchmark: "LOGS/plot/manplot/fastGWA_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
+        plot = "PLOTS/manplot/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.png",
+    log: "LOGS/plot/manplot/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.log"  
+    benchmark: "LOGS/plot/manplot/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.bench" 
     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
     threads: 1
     resources:
@@ -264,8 +296,8 @@ checkpoint plot_GWAScov_impute:
 rule metaGWAS:
     input:
         script = "SCRIPTS/metaGWAS.r",
-        fastgwa = lambda wildcards: expand(
-            "RESULTS/gcta/fastGWA/{gen}/EN{tt}_{gen}.fastGWA",
+        mlmaimp = lambda wildcards: expand(
+            "RESULTS/gcta/mlma_impute/{gen}/EN{tt}_{gen}.mlma",
             gen = wildcards.gen,
             tt = [1,2,3,4,5,6,7,8,10,11,12,13]
         )
@@ -282,7 +314,7 @@ rule metaGWAS:
         time = lambda wildcards, attempt: int(attempt) *3* 60,
         temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
     params:
-        pathimp = "RESULTS/gcta/fastGWA",
+        pathimp = "RESULTS/gcta/mlma_impute",
     shell:
         """
         (
@@ -341,13 +373,13 @@ rule get_sigSNP_array:
 rule get_sigSNP_imp:
     input:
         script = "SCRIPTS/info_sigSNP.r",
-        fgwa = "RESULTS/gcta/fastGWA/{gen}/{pheno}_{gen}.fastGWA",
+        mlmaimp = "RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma",
     output:
-        tab = "RESULTS/gcta/sigSNP/fastGWA/{gen}/{pheno}_{gen}.txt",
+        tab = "RESULTS/gcta/sigSNP/mlma_impute/{gen}/{pheno}_{gen}.txt",
     log:
-        "LOGS/gcta/sigSNP/fastGWA/{gen}/{pheno}_{gen}.log"
+        "LOGS/gcta/sigSNP/mlma_impute/{gen}/{pheno}_{gen}.log"
     benchmark:
-        "LOGS/gcta/sigSNP/fastGWA/{gen}/{pheno}_{gen}.bench"
+        "LOGS/gcta/sigSNP/mlma_impute/{gen}/{pheno}_{gen}.bench"
     threads: 1
     conda: "IMAGE_SCM"
     resources:
@@ -357,41 +389,64 @@ rule get_sigSNP_imp:
     shell:
         """
         (
-        Rscript --vanilla {input.script} {input.fgwa} {output.tab}
+        Rscript --vanilla {input.script} {input.mlmaimp} {output.tab}
         ) &> {log}
         """
 
-checkpoint gcta_mlmaloco_Gen:
+rule analysis_GWAS:
     input:
-        bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
-        bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
-        fam = "INTERMEDIATE/ori/IMAGE_QC.fam",
-        pheno = "DATA/pheno/{pheno}.txt",
-        id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
-        covar = "INTERMEDIATE/covar/covar_gcta.txt",
+        script = "SCRIPTS/analysis_GWAS.r",
+        pinarr = "RESULTS/PCA/array/IMAGE_QC.prune.in",
+        pinimp = "RESULTS/PCA/impute/bcftools_lifted_imputed_gt_QC.prune.in",
     output:
-        "RESULTS/gcta/mlma-loco/{gen}/{pheno}_{gen}.loco.mlma"
-    log: "LOGS/gcta/mlma-loco/{gen}/{pheno}_{gen}.log"  
-    benchmark: "LOGS/gcta/mlma-loco/{gen}/{pheno}_{gen}.bench" 
-    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
-    threads: 2
-    resources:
-        mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
-        time = lambda wildcards, attempt: int(attempt) * 60,
-        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+        out = "RESULTS/gcta/lambdaGC.txt",
     params:
-        name = 'INTERMEDIATE/ori/IMAGE_QC',
-        out = 'RESULTS/gcta/mlma-loco/{gen}/{pheno}_{gen}',
-        covar_flag = lambda wildcards, input: (
-            f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
-        )
+        pathar = "RESULTS/gcta/mlma",
+        pathimp = "RESULTS/gcta/mlma_impute",
+    log:
+        "LOGS/gcta/lambdaGC.log"
+    benchmark:
+        "LOGS/gcta/lambdaGC.bench"
+    threads: 1
+    conda: "IMAGE_SCM"
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 10 * 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
     shell:
         """
-        set +o pipefail
-        (gcta --mlma-loco --bfile {params.name} --keep {input.id} --autosome-num 40 --maf 0.01 \
-        --pheno {input.pheno} {params.covar_flag} --out {params.out}) &> {log} || true
+        (
+        Rscript --vanilla {input.script} {params.pathar} {params.pathimp} {input.pinarr} {input.pinimp} {output.out}
+        ) &> {log}
         """
 
-def get_files_mlma(wildcards):
-    filename = checkpoints.gcta_mlma_Gen.get(**wildcards).output[0]
-    return(filename)
+# checkpoint gcta_mlmaloco_Gen:
+#     input:
+#         bed = "INTERMEDIATE/ori/IMAGE_QC.bed",
+#         bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
+#         fam = "INTERMEDIATE/ori/IMAGE_QC.fam",
+#         pheno = "DATA/pheno/{pheno}.txt",
+#         id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
+#         covar = "INTERMEDIATE/covar/covar_gcta.txt",
+#     output:
+#         "RESULTS/gcta/mlma-loco/{gen}/{pheno}_{gen}.loco.mlma"
+#     log: "LOGS/gcta/mlma-loco/{gen}/{pheno}_{gen}.log"  
+#     benchmark: "LOGS/gcta/mlma-loco/{gen}/{pheno}_{gen}.bench" 
+#     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+#     threads: 2
+#     resources:
+#         mem_mb = lambda wildcards, attempt: int(attempt) * 20000,
+#         time = lambda wildcards, attempt: int(attempt) * 60,
+#         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+#     params:
+#         name = 'INTERMEDIATE/ori/IMAGE_QC',
+#         out = 'RESULTS/gcta/mlma-loco/{gen}/{pheno}_{gen}',
+#         covar_flag = lambda wildcards, input: (
+#             f"--covar {input.covar}" if wildcards.gen in ["all", "offspring"] else ""
+#         )
+#     shell:
+#         """
+#         set +o pipefail
+#         (gcta --mlma-loco --bfile {params.name} --keep {input.id} --autosome-num 40 --maf 0.01 \
+#         --pheno {input.pheno} {params.covar_flag} --out {params.out}) &> {log} || true
+#         """

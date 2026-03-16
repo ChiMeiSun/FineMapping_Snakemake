@@ -48,9 +48,6 @@ rule bfile_ori_QC:
         (
         plink --vcf {input.vcf} --chr-set 40 --allow-extra-chr --mind 0.15 --geno 0.15 \
         --make-bed --out {params.qc}
-
-        awk '{{$1="IM"; print}}' {output.fam} > tmp1.txt
-        mv tmp1.txt {output.fam}
         ) &> {log}
         """
 
@@ -214,11 +211,37 @@ rule bfile_beagle_impute:
         (   set +o pipefail
             plink --vcf {input.vcf} --out {params.n} --make-bed \
             --allow-extra-chr --chr-set 40 --threads {threads}
-
-            awk '{{$1="IM"; print}}' {output.fam} > tmp1.txt
-            mv tmp1.txt {output.fam}
             ) &> {log}
         """
+
+rule bgen_beagle_impute:
+    input:
+        bim = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim"),
+        bed = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed"),
+        fam = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam"),
+    output:
+        bgen = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen"),
+        bgi = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen.bgi"),
+        sample = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.sample"),
+    log: "LOGS/bgen_beagle_impute.log"
+    benchmark: "LOGS/bgen_beagle_impute.bench"
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 5
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) * 10*1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    params:
+        out = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC",
+    shell:
+        """
+        (
+        plink2 --bfile {params.out} --export bgen-1.2 --chr-set 40 --allow-extra-chr --out {params.out} --threads {threads}
+
+        bgenix -g {params.out}.bgen -index
+        ) &> {log}
+        """
+
 
 rule MAFimp_gen:
     input:
@@ -273,6 +296,7 @@ rule PCA_array:
         bim = "INTERMEDIATE/ori/IMAGE_QC.bim",
         fam = "INTERMEDIATE/ori/IMAGE_QC.fam",
     output:
+        pin = "RESULTS/PCA/array/IMAGE_QC.prune.in",
         eivec = "RESULTS/PCA/array/IMAGE_QC_pruned.eigenvec",
         eival = "RESULTS/PCA/array/IMAGE_QC_pruned.eigenval",
     log: "LOGS/PCA/array.log"  
@@ -291,7 +315,7 @@ rule PCA_array:
         """
         set +o pipefail
         (plink --bfile {params.name} {params.arg} --indep-pairwise 100 50 0.3 --threads {threads} --out {params.out}
-          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 5 --threads {threads} --out {params.out}_pruned
+          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 10 --threads {threads} --out {params.out}_pruned
         ) &> {log} || true
         """
 
@@ -301,6 +325,7 @@ rule PCA_impute:
         bed = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
         fam = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.fam",
     output:
+        pin = "RESULTS/PCA/impute/bcftools_lifted_imputed_gt_QC.prune.in",
         eivec = "RESULTS/PCA/impute/bcftools_lifted_imputed_gt_QC_pruned.eigenvec",
         eival = "RESULTS/PCA/impute/bcftools_lifted_imputed_gt_QC_pruned.eigenval",
     log: "LOGS/PCA/impute.log"  
@@ -319,7 +344,7 @@ rule PCA_impute:
         """
         set +o pipefail
         (plink --bfile {params.name} {params.arg} --indep-pairwise 100 50 0.3 --threads {threads} --out {params.out}
-          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 5 --threads {threads} --out {params.out}_pruned
+          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 10 --threads {threads} --out {params.out}_pruned
         ) &> {log} || true
         """
 

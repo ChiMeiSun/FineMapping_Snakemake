@@ -76,7 +76,7 @@ rule plot_fig3:
     input:
         script = "SCRIPTS/plot_fig3.r",
         mlma = expand("PLOTS/manplot/mlma/all/{pheno}_all.png", pheno=['EN7','EN8','EN11']),
-        fastgwa = expand("PLOTS/manplot/fastGWA/all/{pheno}_all.png", pheno=['EN7','EN8','EN11']),
+        mlma_impute = expand("PLOTS/manplot/mlma_impute/all/{pheno}_all.png", pheno=['EN7','EN8','EN11']),
     output:
         p = "PLOTS/publish/fig3.png"
     log: "LOGS/plot/publish/fig3.log"
@@ -90,7 +90,7 @@ rule plot_fig3:
     shell:
         """
         (
-        Rscript --vanilla {input.script} {input.mlma} {input.fastgwa} {output.p}
+        Rscript --vanilla {input.script} {input.mlma} {input.mlma_impute} {output.p}
         ) &> {log}
         """
 
@@ -98,9 +98,9 @@ rule plot_fig4:
     input:
         script = "SCRIPTS/plot_fig4.r",
         mlma = expand("PLOTS/manplot/mlma/all/{pheno}_all.png", pheno=['BW32','EW30']),
-        fastgwa = expand("PLOTS/manplot/fastGWA/all/{pheno}_all.png", pheno=['BW32','EW30']),
-        cov1 = "PLOTS/manplot/fastGWA_cov/all/BW32covEW30_all.png",
-        cov2 = "PLOTS/manplot/fastGWA_cov/all/EW30covBW32_all.png",
+        mlma_impute = expand("PLOTS/manplot/mlma_impute/all/{pheno}_all.png", pheno=['BW32','EW30']),
+        cov1 = "PLOTS/manplot/mlmaimp_cov/all/BW32covEW30_all.png",
+        cov2 = "PLOTS/manplot/mlmaimp_cov/all/EW30covBW32_all.png",
     output:
         p = "PLOTS/publish/fig4.png"
     log: "LOGS/plot/publish/fig4.log"
@@ -114,7 +114,7 @@ rule plot_fig4:
     shell:
         """
         (
-        Rscript --vanilla {input.script} {input.mlma} {input.fastgwa} {input.cov1} {input.cov2} {output.p}
+        Rscript --vanilla {input.script} {input.mlma} {input.mlma_impute} {input.cov1} {input.cov2} {output.p}
         ) &> {log}
         """
 
@@ -170,6 +170,9 @@ rule plot_manplot_combine:
         files = collect_all_manplots,
     output:
         p = "PLOTS/manplot/combine/arrimp/{pheno}.png"
+    params:
+        pathar = "PLOTS/manplot/mlma",
+        pathimp = "PLOTS/manplot/mlma_impute",
     log: "LOGS/plot/manplot/combine/arrimp/{pheno}.log"
     benchmark: "LOGS/plot/manplot/combine/arrimp/{pheno}.bench"
     threads: 1
@@ -180,7 +183,7 @@ rule plot_manplot_combine:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     shell:
         """
-        ( Rscript --vanilla {input.script} {output.p}
+        ( Rscript --vanilla {input.script} {output.p} {params.pathar} {params.pathimp}
         ) &> {log} 
         """ 
 
@@ -211,6 +214,9 @@ rule plot_manplot_combine_cov:
         files = collect_all_manplots_cov,
     output:
         p = "PLOTS/manplot/combine/arrimp_cov/{pheno}cov{covt}.png"
+    params:
+        pathar = "PLOTS/manplot/mlma_cov",
+        pathimp = "PLOTS/manplot/mlmaimp_cov",
     log: "LOGS/plot/manplot/combine/arrimp_cov/{pheno}cov{covt}.log"
     benchmark: "LOGS/plot/manplot/combine/arrimp_cov/{pheno}cov{covt}.bench"
     threads: 1
@@ -221,7 +227,7 @@ rule plot_manplot_combine_cov:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     shell:
         """
-        ( Rscript --vanilla {input.script} {output.p}
+        ( Rscript --vanilla {input.script} {output.p} {params.pathar} {params.pathimp}
         ) &> {log} 
         """ 
 
@@ -252,7 +258,7 @@ rule wr_supdata2:
 rule wr_supdata3:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobsori_{pheno}_{gen}.txt", pheno=phenos, gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobsori_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData3.xlsx"
     log: "LOGS/supdata/supdata3.log"
@@ -272,7 +278,7 @@ rule wr_supdata3:
 rule wr_supdata4:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/enrichcat_{pheno}_{gen}.txt", pheno=phenos, gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/enrichcat_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData4.xlsx"
     log: "LOGS/supdata/supdata4.log"
@@ -292,7 +298,7 @@ rule wr_supdata4:
 rule wr_supdata5:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/credsets_{pheno}_{gen}.txt", pheno=phenos, gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/credsets_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData5.xlsx"
     log: "LOGS/supdata/supdata5.log"
@@ -312,7 +318,7 @@ rule wr_supdata5:
 rule wr_supdata6:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobs_{pheno}_{gen}.txt", pheno=phenos, gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobs_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData6.xlsx"
     log: "LOGS/supdata/supdata6.log"

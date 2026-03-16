@@ -3,6 +3,7 @@ library(data.table)
 options(scipen=999, width=2000)
 
 phenos = c('EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13','BW32','EW30','EW40','EW50','EW70')
+phenos = c('ENs','BWEW')
 datype = c("enrichcat","geneprobs","geneprobsori","credsets")
 datype = c("geneprobs")
 

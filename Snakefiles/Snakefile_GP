@@ -32,7 +32,7 @@ rule gcta_grmbin_IMAGE_QC:
         ) &> {log}
         """
 
-rule gcta_grmbin_imputed:
+rule gcta_grmbin_imputed_QC:
     input:
         "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bed",
         "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
@@ -49,7 +49,7 @@ rule gcta_grmbin_imputed:
     conda: "IMAGE_SCM"
     resources:
         mem_mb = lambda wildcards, attempt: int(attempt) * 50 * 1000,
-        time = lambda wildcards, attempt: int(attempt) *2* 60,
+        time = lambda wildcards, attempt: int(attempt) *24* 60,
         temp = lambda wildcards, attempt: "${TMP_LOCAL}" if int(attempt) == 1 else 'TEMP/'
     params:
         bfile = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC",
