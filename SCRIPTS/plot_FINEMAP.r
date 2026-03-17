@@ -1,8 +1,7 @@
 # args <- c("RESULTS/FINEMAP/EW70/all/sss/masterFM", "RESULTS/FINEMAP/EW70/all/cond/masterFM",
 # "DATA/geno/ensembl_genes_GRCg6a.txt",
 # "RESULTS/gcta/mlma_impute/all/EW70_all.mlma",
-# "PLOTS/FINEMAP/EW70/all/data.pdf"
-# )
+# "PLOTS/FINEMAP/EW70/all/data.pdf")
 
 args <- commandArgs(TRUE)
 args
@@ -33,9 +32,31 @@ dim(mlma)
 bonf <- 0.05/nrow(mlma)
 
 genes <- fread(genep, header=TRUE, na.string="")
-colnames(genes) = c("CHR","START","END","ENSG","ENSGver","GeneName","strand","GOaccs","GOname")
+colnames(genes) <- c("chr","start","end","gene_id","gene_id_ver","gene_name","strand","GOterm_acc","GOterm_name")
+unigenes <- genes[!is.na(chr)][, .SD[1], by = gene_id] # keep only unique variants
 
+#
+get_gene_prob <- function(dat, subgenes, extension = 1000) {
+    subgenes[, `:=`(start_ext = start - extension, 
+                        end_ext = end + extension)]
+    # dat should contain: chr, position, prob, log10bf
+    dat[, chr := as.character(chr)]
+    subgenes[, chr := as.character(chr)]
+    
+    res <- dat[subgenes, 
+                   on = .(chr = chr, 
+                   position >= start_ext,
+                   position <= end_ext), 
+                   nomatch = NULL]
+    cols <- setdiff(colnames(subgenes), c("start_ext", "end_ext"))
+    res <- res[, .(sum_prob = sum(prob, na.rm = TRUE),
+                N = .N,
+                maxlog10bf = max(log10bf, na.rm = TRUE)),
+                by = cols]
+    return(res)
+}
 
+#
 
 # plot
 pdf(outplot, width = 15, height = 9)
@@ -53,7 +74,7 @@ for (i in seq_len(nrow(qtls))) {
         region <- sprintf("%s:%s-%s", chr, format(st, scientific = FALSE), format(ed, scientific = FALSE))    
 
         # gene
-        subgenes <- genes[CHR==chr & START>=st & END<=ed,]
+        subgenes <- unigenes[chr==chr & start>=st & end<=ed,]
         set.seed(123)
         if (length(unique(subgenes$GeneName)) <2){
         tab = data.table(GeneName = unique(subgenes$GeneName),
@@ -118,7 +139,16 @@ for (i in seq_len(nrow(qtls))) {
         meta <- merge(meta_sss, cred_cond, by.x = "cred1_sss", by.y = "cred1_cond", all = TRUE)
         meta <- merge(meta, mlma, by.x = "cred1_sss", by.y = "SNP", all.x = TRUE)
 
-        ########
+
+        # get gene prob
+        ## sss
+        dat <- copy(meta[, .(chr = Chr, position = bp, prob = prob_sss, log10bf = log10bf_sss)])
+        gp_sss <- get_gene_prob(dat, subgenes, extension = 1000)
+        ## cond
+        dat <- copy(meta[, .(chr = Chr, position = bp, prob = prob1_cond, log10bf = NA)])
+        gp_cond <- get_gene_prob(dat, subgenes, extension = 1000)
+
+        ######## plot ########
         jitwid = (ed - st)/50
         maxbf = max(meta$log10bf, na.rm = TRUE)
         minp = min(meta$p, na.rm = TRUE)
@@ -170,3 +200,12 @@ for (i in seq_len(nrow(qtls))) {
 }
 
 dev.off()
+
+
+
+# For --sss (sum of single effects):
+# File	What it contains	How to use it
+# data.snp	Marginal inclusion probabilities (PIP) for each SNP across all causal configurations	Primary file for candidate variants - This is what you should use for identifying likely causal SNPs
+# data.cred (or .cred1, .cred2)	95% credible sets - groups of SNPs that together have 95% probability of containing the causal variant	Use to define credible sets for each signal. The sum of probabilities in each .cred file = 0.95
+# data.config	Top ranked configurations (combinations of SNPs) with their posterior probabilities	Shows which combinations of SNPs are most likely. Each row is a different model
+# data.bf (or .bf1, .bf2)	Bayes factors for each independent signal	Used to compare evidence for 1 vs 2 vs 3 causal variants

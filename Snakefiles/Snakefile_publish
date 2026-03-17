@@ -258,7 +258,7 @@ rule wr_supdata2:
 rule wr_supdata3:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobsori_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobsori_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData3.xlsx"
     log: "LOGS/supdata/supdata3.log"
@@ -278,7 +278,7 @@ rule wr_supdata3:
 rule wr_supdata4:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/enrichcat_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/enrichcat_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData4.xlsx"
     log: "LOGS/supdata/supdata4.log"
@@ -298,7 +298,7 @@ rule wr_supdata4:
 rule wr_supdata5:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/credsets_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/credsets_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData5.xlsx"
     log: "LOGS/supdata/supdata5.log"
@@ -318,7 +318,7 @@ rule wr_supdata5:
 rule wr_supdata6:
     input:
         script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobs_{pheno}_{gen}.txt", pheno=['ENs', 'BWEW'], gen='all')
+        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobs_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData6.xlsx"
     log: "LOGS/supdata/supdata6.log"

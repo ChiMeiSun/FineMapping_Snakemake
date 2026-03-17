@@ -38,7 +38,7 @@ rule all:
         # expand("PLOTS/BFMAP/{pheno}/{pheno}_{gen}.pdf", pheno=phenos, gen='all'),
         # expand("PLOTS/BFMAP/{pheno}/recalc_{pheno}_{gen}.pdf", pheno=phenos, gen='all'),
         # expand("RESULTS/supdata/SupplementaryData{num}.txt", num=['1','2']),
-        expand("RESULTS/supdata/SupplementaryData{num}.xlsx", num=['3','4','5','6']),
+        # expand("RESULTS/supdata/SupplementaryData{num}.xlsx", num=['3','4','5','6']),
         # expand("PLOTS/FINEMAP/{pheno}/{gen}/data.pdf", pheno=phenos, gen="all"),
 
 

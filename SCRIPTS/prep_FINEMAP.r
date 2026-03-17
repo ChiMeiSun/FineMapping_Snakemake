@@ -38,11 +38,12 @@ linesFM_cond <- c("z;ld;snp;config;cred;log;n_samples")
 
 for (i in seq_len(nrow(qtls))) {
     # test minor alteration of regions
-    tmp <- qtls[i]
-    tqtls <- data.table(Chr = tmp$Chr,
-                st = c(tmp$exdst, tmp$exdst - 1e6, tmp$exdst + 1e6),
-                ed = c(tmp$exded, tmp$exded + 1e6, tmp$exded - 1e6)
-    )
+    # tmp <- qtls[i]
+    # tqtls <- data.table(Chr = tmp$Chr,
+    #             st = c(tmp$exdst, tmp$exdst - 1e6, tmp$exdst + 1e6),
+    #             ed = c(tmp$exded, tmp$exded + 1e6, tmp$exded - 1e6)
+    # )
+    tqtls <- qtls
     
     for (j in seq_len(nrow(tqtls))) {
     

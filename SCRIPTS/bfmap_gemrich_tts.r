@@ -11,7 +11,8 @@
 # "RESULTS/BFMAPrecalc/ENs/geneprobs_ENs_all.txt",   
 # "RESULTS/BFMAPrecalc/ENs/enrichcat_ENs_all.txt",   
 # "RESULTS/BFMAPrecalc/ENs/geneprobsori_ENs_all.txt",
-# "PLOTS/BFMAP/ENs/recalc_ENs_all.pdf")
+# "PLOTS/BFMAP/ENs/recalc_ENs_all.pdf", 
+# "ENs")
 
 # args <- c("RESULTS/BFMAP/BW32/credsets_BW32_all.txt",      
 # "RESULTS/BFMAP/BW32/vep_BW32_all.vcf",               
@@ -20,7 +21,8 @@
 # "RESULTS/BFMAPrecalc/BWEWs/geneprobs_BWEWs_all.txt",   
 # "RESULTS/BFMAPrecalc/BWEWs/enrichcat_BWEWs_all.txt",   
 # "RESULTS/BFMAPrecalc/BWEWs/geneprobsori_BWEWs_all.txt",
-# "PLOTS/BFMAP/BWEWs/recalc_BWEWs_all.pdf")
+# "PLOTS/BFMAP/BWEWs/recalc_BWEWs_all.pdf", 
+# "BWEWs")
 
 args <- commandArgs(TRUE)
 args
@@ -50,6 +52,7 @@ outgp <- args[5]
 outerh <- args[6]
 outgpori <- args[7]
 outplot <- args[8]
+tts <- args[9]
 
 
 ##### read data #####
@@ -115,8 +118,16 @@ regions <- readLines(credp, n = 1)
 regions <- unlist(strsplit(sub("#", "", regions), ","))
 
 path <- dirname(dirname(credp))
-tt <- c('EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13')
-tt <- c('BW32','EW30','EW40','EW50','EW70')
+
+if (tts == "ENs") {
+  tt <- c('EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13')
+
+} else if (tts == "BWEWs") {
+  tt <- c('BW32','EW30','EW40','EW50','EW70')
+
+} else {
+  stop("STOP: use 'ENs' to combine EN; use 'BWEWs' to combine BW and EWs; other names need to be defined!")
+}
 
 ##### calculation by each chromosome #####
 for (i in 1:length(regions)){
@@ -186,17 +197,25 @@ for (i in 1:length(regions)){
   )
 
   # combine duplicated genes prob across different signals (signals modified to fit the function thus not informative)
-  cols_keep <- setdiff(colnames(gene_probs_c_ori), c("summed_prob", "lead_pvalue"))
-  gene_probs_c_ori <- gene_probs_c_ori[, .(
-    summed_prob = sum(summed_prob, na.rm = TRUE),
-    lead_pvalue = min(lead_pvalue, na.rm = TRUE)
-  ), by = cols_keep]
+  # cols_keep <- setdiff(colnames(gene_probs_c_ori), c("summed_prob", "lead_pvalue"))
+  # gene_probs_c_ori <- gene_probs_c_ori[, .(
+  #   summed_prob = sum(summed_prob, na.rm = TRUE),
+  #   lead_pvalue = min(lead_pvalue, na.rm = TRUE)
+  # ), by = cols_keep]
 
-  gene_probs_c_ori <- gene_probs_c_ori[summed_prob >= 0.01,][order(-summed_prob)]
-  gene_probs_c_ori[GOterm_name == "", GOterm_name := "/"]
+  gene_probs_c_ori <- gene_probs_c_ori[summed_prob >= 0.01,]
+  
+  tab <- qtl_cs[, .N, by = .(signal, pheno)][,N := NULL]
+  gene_probs_c_ori <- merge(gene_probs_c_ori, tab, by = "signal", all.x = TRUE)
+  
+  gene_probs_c_ori <- gene_probs_c_ori[, signal := NULL][
+    GOterm_name == "", GOterm_name := "/"
+  ][
+    order(-summed_prob, pheno)
+  ]
+
   gene_probs_ori[[i]] <- gene_probs_c_ori
   gene_probs_c_ori[, mid := (start + end) / 2 ]
-  # print(gene_probs_c_ori)
 
   
   ##### calculation with different categories #####
@@ -314,7 +333,7 @@ for (i in 1:length(regions)){
 
 
     # Calculate gene-level probabilities renormalized
-    tmp <- renormed_bfmap_c[,c("signal", "SNPindex", "Chr", "Pos", "Pval", "renormedProb")]
+    tmp <- renormed_bfmap_c[,c("signal", "SNPindex", "Chr", "Pos", "Pval", "renormedProb", "pheno")]
     setnames(tmp,"renormedProb","normedProb")
     gene_probs_c_re <- calc_gene_posterior_prob(
       bfmap = tmp,
@@ -329,18 +348,17 @@ for (i in 1:length(regions)){
     renormed_bfmap_c[, cat_group := cat]
     renormed_bfmap_c[, diff_prob := renormedProb - normedProb]
     renormed_bfmap_c <- renormed_bfmap_c[order(signal, -renormedProb)]
+
     #
-    cols_keep <- setdiff(colnames(gene_probs_c_re), c("summed_prob", "lead_pvalue"))
-    gene_probs_c_re <- gene_probs_c_re[, .(
-      summed_prob = sum(summed_prob, na.rm = TRUE),
-      lead_pvalue = min(lead_pvalue, na.rm = TRUE)
-    ), by = cols_keep]
+    tab <- tmp[, .N, by = .(signal, pheno)][,N := NULL]
+    gene_probs_c_re <- merge(gene_probs_c_re, tab, by = "signal", all.x = TRUE)
+    gene_probs_c_re[, signal := NULL]
     gene_probs_c_re[GOterm_name == "", GOterm_name := "/"][
       , mid := (start + end) / 2
     ]
 
-    gene_probs_c_ori[, signal := as.factor(signal)]
-    gene_probs_c_re[, signal := as.factor(signal)]
+    # gene_probs_c_ori[, pheno := as.factor(pheno)]
+    # gene_probs_c_re[, pheno := as.factor(pheno)]
 
 
     if (nrow(gene_probs_c_re) > 0) {
@@ -432,7 +450,7 @@ for (i in 1:length(regions)){
 
     # plot ppc per gene
     ggeneori <- ggplot(gene_probs_c_ori) +
-            geom_point(aes(x = mid, y = summed_prob, color = signal), size = 2, alpha = 0.7) +
+            geom_point(aes(x = mid, y = summed_prob, color = pheno), size = 2, alpha = 0.7) +
             geom_segment(aes(x = start, xend = end, y = -0.1, yend = -0.1, color = GOterm_name),
                     arrow = arrow(length = unit(0.05, "npc")), inherit.aes=FALSE, show.legend = FALSE) +
             labs(title = paste0(tragen,", QTL-",reg,", ori summed_prob of genes(zoom in)"), 
@@ -445,7 +463,7 @@ for (i in 1:length(regions)){
             ylim(-0.5,1)
 
     ggenere <- ggplot(gene_probs_c_re) +
-            geom_point(aes(x = mid, y = summed_prob, color = signal), size = 2, alpha = 0.7) +
+            geom_point(aes(x = mid, y = summed_prob, color = pheno), size = 2, alpha = 0.7) +
             geom_segment(aes(x = start, xend = end, y = -0.1, yend = -0.1, color = GOterm_name),
                     arrow = arrow(length = unit(0.05, "npc")), inherit.aes=FALSE, show.legend = FALSE) +
             labs(title = paste0(tragen,", QTL-",reg,", recalc summed_prob of genes(zoom in)"), 
@@ -459,7 +477,6 @@ for (i in 1:length(regions)){
 
 
     # save table
-    gene_probs_c[, signal := NULL]
     gene_probs_c <- gene_probs_c[summed_prob_re >= 0.01,]
 
     if( !is.na(mle_c$mle_status[1])) { # if mle failed
