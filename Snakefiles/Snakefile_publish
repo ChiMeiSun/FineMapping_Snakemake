@@ -238,7 +238,8 @@ phenos = ['EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','
 rule wr_supdata2:
     input:
         script = "SCRIPTS/wr_supdata2.r",
-        files = expand("RESULTS/BFMAP/{pheno}/h2_{pheno}_{gen}.txt", pheno=phenos, gen='all')
+        bfmaph2 = expand("RESULTS/BFMAP/{pheno}/h2_{pheno}_{gen}.txt", pheno=phenos, gen='all'),
+        finemapcssss = expand("RESULTS/FINEMAP/{pheno}/{gen}/sss/credsets.txt", pheno=phenos, gen='all')
     output:
         tab = "RESULTS/supdata/SupplementaryData2.txt"
     log: "LOGS/supdata/supdata2.log"
@@ -251,7 +252,7 @@ rule wr_supdata2:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     shell:
         """
-        ( Rscript --vanilla {input.script} {output.tab} {input.files}
+        ( Rscript --vanilla {input.script} {output.tab} {input.bfmaph2} {input.finemapcssss}
         ) &> {log} 
         """ 
 

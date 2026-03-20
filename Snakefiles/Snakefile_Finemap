@@ -1,4 +1,6 @@
 phenos = ['EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13','BW32','EW30','EW40','EW50','EW70']
+phenoENs = ['EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13']
+phenoBWEWs = ['BW32','EW30','EW40','EW50','EW70']
 
 
 import pandas as pd
@@ -51,6 +53,7 @@ def get_vc_files(qtl_file, pheno, gen):
     return vc_files
 
 
+
 rule BFMAP_grm:
     input:
         appath = "SCRIPTS/packages/bfmap_0.91/bfmap",
@@ -88,7 +91,7 @@ rule BFMAP_grm:
 rule BFMAP_gen:
     input:
         appath = "SCRIPTS/packages/bfmap_0.91/bfmap",
-        script = "SCRIPTS/prep_bfmap.r",
+        script = "SCRIPTS/prep_BFMAP.r",
         pheno = "DATA/pheno/Phenotypes_Final.csv",
         rdata = "DATA/geno/2024-04-19_IMAGEcomplete_CR_SCM_GGA6_Ref0_Alt1.RData",
         id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
@@ -167,7 +170,7 @@ rule BFMAP_gen:
 # rule BFMAP_gen_sss:
 #     input:
 #         appath = "SCRIPTS/packages/bfmap_0.91/bfmap",
-#         script = "SCRIPTS/prep_bfmap.r",
+#         script = "SCRIPTS/prep_BFMAP.r",
 #         pheno = "DATA/pheno/Phenotypes_Final.csv",
 #         rdata = "DATA/geno/2024-04-19_IMAGEcomplete_CR_SCM_GGA6_Ref0_Alt1.RData",
 #         id = "INTERMEDIATE/IDlist/IDlist_{gen}.txt",
@@ -247,6 +250,7 @@ rule plot_BFMAP_pheno_gen:
         mlma="RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma",
         genes = "DATA/geno/ensembl_genes_GRCg6a.txt",
         qtl = "RESULTS/BFMAP/{pheno}/QTLs_{pheno}_{gen}.txt",
+        bim = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim",
         fs = lambda wildcards: get_fs_files(checkpoints.get_QTLs.get(pheno=wildcards.pheno, gen=wildcards.gen).output.qtl, wildcards.pheno, wildcards.gen),
         vc = lambda wildcards: get_vc_files(checkpoints.get_QTLs.get(pheno=wildcards.pheno, gen=wildcards.gen).output.qtl, wildcards.pheno, wildcards.gen),
         # resolve_plot_inputs
@@ -265,7 +269,7 @@ rule plot_BFMAP_pheno_gen:
     shell:
         """
         set +o pipefail
-        (Rscript --vanilla {input.script} {input.mlma} {input.genes} {output.cred} {output.h2} {output.pdf} {input.fs} ) &> {log} || true
+        (Rscript --vanilla {input.script} {input.mlma} {input.genes} {input.qtl} {output.cred} {output.h2} {output.pdf} {input.bim} {input.fs} ) &> {log} || true
         """
 
 
@@ -326,6 +330,8 @@ rule plot_BFMAP_gemrich_ENs:
         cred = "RESULTS/BFMAP/EN1/credsets_EN1_{gen}.txt",
         vep = "RESULTS/BFMAP/EN1/vep_EN1_{gen}.vcf",
         gene = "DATA/geno/ensembl_genes_GRCg6a.txt",
+        vepneed = expand("RESULTS/BFMAP/{pheno}/vep_{pheno}_{gen}.vcf", pheno=phenoENs, gen='all'),
+        credneed = expand("RESULTS/BFMAP/{pheno}/credsets_{pheno}_{gen}.txt", pheno=phenoENs, gen='all')
     output:
         cs = "RESULTS/BFMAPrecalc/ENs/credsets_ENs_{gen}.txt",    
         gp = "RESULTS/BFMAPrecalc/ENs/geneprobs_ENs_{gen}.txt",    
@@ -351,6 +357,8 @@ rule plot_BFMAP_gemrich_BWEWs:
         cred = "RESULTS/BFMAP/BW32/credsets_BW32_{gen}.txt",
         vep = "RESULTS/BFMAP/BW32/vep_BW32_{gen}.vcf",
         gene = "DATA/geno/ensembl_genes_GRCg6a.txt",
+        vepneed = expand("RESULTS/BFMAP/{pheno}/vep_{pheno}_{gen}.vcf", pheno=phenoBWEWs, gen='all'),
+        credneed = expand("RESULTS/BFMAP/{pheno}/credsets_{pheno}_{gen}.txt", pheno=phenoBWEWs, gen='all')
     output:
         cs = "RESULTS/BFMAPrecalc/BWEWs/credsets_BWEWs_{gen}.txt",    
         gp = "RESULTS/BFMAPrecalc/BWEWs/geneprobs_BWEWs_{gen}.txt",    
@@ -491,6 +499,8 @@ rule plot_FINEMAP:
         dummy2 = "RESULTS/FINEMAP/{pheno}/{gen}/sss/FINEMAP.done",
         dummy3 = "RESULTS/FINEMAP/{pheno}/{gen}/cond/FINEMAP.done",
     output:
+        credset = "RESULTS/FINEMAP/{pheno}/{gen}/sss/credsets.txt",
+        geneprob = "RESULTS/FINEMAP/{pheno}/{gen}/sss/geneprobs.txt",
         plot = "PLOTS/FINEMAP/{pheno}/{gen}/data.pdf",
     log: "LOGS/PLOTS/FINEMAP/{pheno}/{gen}/data.log"  
     benchmark: "LOGS/PLOTS/FINEMAP/{pheno}/{gen}/data.bench" 
@@ -505,4 +515,57 @@ rule plot_FINEMAP:
         ( Rscript --vanilla {input.script} {input.masterFM_sss} {input.masterFM_cond} {input.gene} {input.mlma} \
         {output}
         ) &> {log}
+        """
+
+def get_all_comparison_files(wildcards):
+    """
+    Collect both FS and SSS files for all phenotypes
+    Must take wildcards as argument (even if not used).
+    """
+    all_fs = []
+    all_sss = []
+    comparephenos = ['BW32', 'EW30', 'EW70', 'EN1', 'EN13']
+    comparegens = ['all']
+    
+    for pheno in comparephenos:
+        for gen in comparegens:
+            # Get QTL file from checkpoint
+            qtl_file = checkpoints.get_QTLs.get(pheno=pheno, gen=gen).output.qtl
+            
+            # Read once, use for both
+            df = pd.read_csv(qtl_file, sep="\t")
+            
+            for _, row in df.iterrows():
+                region = f"{int(row['Chr'])}:{int(row['exdst'])}-{int(row['exded'])}"
+                
+                # FS file
+                fs_path = f"RESULTS/BFMAP/{pheno}/FS/{region}_{pheno}_{gen}.csv"
+                all_fs.append(fs_path.replace(" ", ""))
+                
+                # SSS file
+                sss_path = f"RESULTS/FINEMAP/{pheno}/{gen}/sss/{region}/data.snp"
+                all_sss.append(sss_path.replace(" ", ""))
+    
+    return all_fs + all_sss
+
+
+
+rule analysis_FP:
+    input:
+        script="SCRIPTS/analysis_FP.r",
+        files = get_all_comparison_files
+    output:
+        txt = "RESULTS/analysis/BFMAPvsFINEMAP.txt"
+    log: "LOGS/analysis_FP/BFMAPvsFINEMAP.log"  
+    benchmark: "analysis_FP/BFMAPvsFINEMAP.bench" 
+    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: int(attempt) *10* 1000,
+        time = lambda wildcards, attempt: int(attempt) * 60,
+        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+    shell:
+        """
+        set +o pipefail
+        (Rscript --vanilla {input.script} {output.txt} {input.files} ) &> {log} || true
         """

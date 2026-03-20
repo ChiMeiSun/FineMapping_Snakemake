@@ -1,6 +1,7 @@
 # snakemake --dag | dot -Tsvg > dag.svg
 # snakemake --rulegraph | dot -Tsvg > rulegraph.svg
 # snakemake --filegraph | dot -Tsvg > filegraph.svg
+# conda env export > IMAGE_SCM.yaml 
 
 include: "Snakefiles/Snakefile_preps"
 include: "Snakefiles/Snakefile_GWAS"
@@ -23,6 +24,7 @@ rule all:
         # "RESULTS/publish/pheno_descriptive.txt",
         # "PLOTS/publish/PhenoCor.png",
         # expand("PLOTS/publish/fig{num}.png", num=['3','4','5']),
+# 
         # "PLOTS/manplot/metaGWAS/ENs_all.png",
         # expand("PLOTS/manplot/mlma/{gen}/{pheno}_{gen}.png", pheno=phenos, gen = gens2),
         # expand("PLOTS/manplot/mlma_impute/{gen}/{pheno}_{gen}.png", pheno=phenos,gen = gens2),
@@ -35,10 +37,13 @@ rule all:
         # expand("PLOTS/manplot/combine/arrimp_cov/{pheno}cov{covt}.png", pheno='BW32', covt=['EW30','EW40','EW50','EW70']),
         # expand("RESULTS/gcta/sigSNP/mlma/{gen}/{pheno}_{gen}.txt", pheno=phenos, gen = gens2),
         # expand("RESULTS/gcta/sigSNP/mlma_impute/{gen}/{pheno}_{gen}.txt", pheno=phenos,gen = gens2),
+# 
         # expand("PLOTS/BFMAP/{pheno}/{pheno}_{gen}.pdf", pheno=phenos, gen='all'),
-        # expand("PLOTS/BFMAP/{pheno}/recalc_{pheno}_{gen}.pdf", pheno=phenos, gen='all'),
+        expand("PLOTS/BFMAP/{pheno}/recalc_{pheno}_{gen}.pdf", pheno=['ENs','BWEWs'], gen='all'),
+# 
+        # expand("PLOTS/FINEMAP/{pheno}/{gen}/data.pdf", pheno=phenos, gen='all'),
+# 
         # expand("RESULTS/supdata/SupplementaryData{num}.txt", num=['1','2']),
         # expand("RESULTS/supdata/SupplementaryData{num}.xlsx", num=['3','4','5','6']),
-        # expand("PLOTS/FINEMAP/{pheno}/{gen}/data.pdf", pheno=phenos, gen="all"),
 
 
