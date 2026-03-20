@@ -1,6 +1,8 @@
 # args <- c("RESULTS/FINEMAP/EW70/all/sss/masterFM", "RESULTS/FINEMAP/EW70/all/cond/masterFM",
 # "DATA/geno/ensembl_genes_GRCg6a.txt",
 # "RESULTS/gcta/mlma_impute/all/EW70_all.mlma",
+# "RESULTS/FINEMAP/EW70/all/sss/credsets.txt",
+# "RESULTS/FINEMAP/EW70/all/sss/geneprobs.txt",
 # "PLOTS/FINEMAP/EW70/all/data.pdf")
 
 args <- commandArgs(TRUE)
@@ -14,13 +16,19 @@ sssp <- args[1]
 condp <- args[2]
 genep <- args[3]
 mlmap <- args[4]
-outplot <- args[5]
+outcs_sss <- args[5]
+outgp_sss <- args[6]
+outplot <- args[7]
 #
+
+
 qtls <- fread(sssp, select = 1)
 qtls[, region := sub(".*all/(.*)/data.z$", "\\1", z) ]
 qtls[, chr := sub(":.*", "", region) ]
-qtls[, st := sub(".*:(.*)-.*", "\\1", region) ]
+qtls[, st := as.numeric(sub(".*:(.*)-.*", "\\1", region)) ]
 qtls[, ed := sub(".*-(.*)", "\\1", region) ]
+
+trueqtls <- qtls[, .SD[which(abs(st - median(st)) == min(abs(st - median(st))))[1]], by = chr]
 
 sssp <- dirname(sssp)
 condp <- dirname(condp)
@@ -40,6 +48,7 @@ get_gene_prob <- function(dat, subgenes, extension = 1000) {
     subgenes[, `:=`(start_ext = start - extension, 
                         end_ext = end + extension)]
     # dat should contain: chr, position, prob, log10bf
+    colnames(dat) <- c("chr", "position", "prob", "log10bf")
     dat[, chr := as.character(chr)]
     subgenes[, chr := as.character(chr)]
     
@@ -67,6 +76,10 @@ ggformat <- list(
         scale_size_manual(values = c("0" = 2, "1" = 3.5))
 )
 
+cs_sss <- data.table()
+gp_sss <- data.table()
+msg_sss <- c()
+
 for (i in seq_len(nrow(qtls))) {
         chr <- qtls$chr[i]
         st <- as.numeric(qtls$st[i])
@@ -76,19 +89,19 @@ for (i in seq_len(nrow(qtls))) {
         # gene
         subgenes <- unigenes[chr==chr & start>=st & end<=ed,]
         set.seed(123)
-        if (length(unique(subgenes$GeneName)) <2){
-        tab = data.table(GeneName = unique(subgenes$GeneName),
+        if (length(unique(subgenes$gene_name)) <2){
+        tab = data.table(gene_name = unique(subgenes$gene_name),
                         randn = abs(runif(1, 0, 1)),
                         tt = 2)
         } else {
-                tab = data.table(GeneName = unique(subgenes$GeneName),
-                                randn = abs(runif(unique(subgenes$GeneName), 0, 1)),
-                                tt = rep(1:5, 1000)[1:length(unique(subgenes$GeneName))])
+                tab = data.table(gene_name = unique(subgenes$gene_name),
+                                randn = abs(runif(unique(subgenes$gene_name), 0, 1)),
+                                tt = rep(1:5, 1000)[1:length(unique(subgenes$gene_name))])
         }
-        subgenes = tab[unique(subgenes, by="GeneName"), on="GeneName"]
-        subgenes[is.na(GeneName), tt := 2] 
+        subgenes = tab[unique(subgenes, by="gene_name"), on="gene_name"]
+        subgenes[is.na(gene_name), tt := 2] 
         subgenes[, tt := as.factor(tt)]
-        subgenes[,mid := (START+END)/2]
+        subgenes[,mid := (start+end)/2]
         table(subgenes$tt)
 
 
@@ -106,7 +119,6 @@ for (i in seq_len(nrow(qtls))) {
         # h2: heritability contribution of SNPs
         # dim = 50k (default num of config to be saved; config can contain >1 SNP)
         
-        msg_sss <- readLines(sprintf("%s/data.cred1", pp_sss), n = 5)
         cred1_sss <- fread(sprintf("%s/data.cred1", pp_sss), skip = 5)
         sum(cred1_sss$prob1)
 
@@ -115,7 +127,28 @@ for (i in seq_len(nrow(qtls))) {
         meta_sss[, color := 0]
         meta_sss[prob == max(prob) & log10bf == max(log10bf), color := 1]
         
-        
+        ## save true qtl output table
+        if (region %in% trueqtls$region) {
+
+                msg_sss <- c(msg_sss,
+                        sprintf("#QTL: %s", region),
+                        readLines(sprintf("%s/data.cred1", pp_sss), n = 5)
+                )
+                cred2p <- sprintf("%s/data.cred2", pp_sss)
+                if (file.exists(cred2p)) msg_sss <- c(msg_sss, readLines(cred2p, n = 5))
+
+                cs_sss <- rbind(cs_sss,
+                        merge(cred1_sss[, .(SNPanme = cred1)], 
+                                snp_sss[, .(SNPanme = rsid, Chr = chromosome, Pos = position, prob, log10bf)], 
+                                by = "SNPanme", all.x = TRUE)
+                )
+                
+                gp_sss <- rbind(gp_sss,
+                        get_gene_prob(cs_sss[, .(Chr, Pos, prob, log10bf)], subgenes, extension = 1000)
+                )
+        }
+        ##
+
         # --cond
         pp_cond <- sprintf("%s/%s", condp, region) 
 
@@ -140,13 +173,13 @@ for (i in seq_len(nrow(qtls))) {
         meta <- merge(meta, mlma, by.x = "cred1_sss", by.y = "SNP", all.x = TRUE)
 
 
-        # get gene prob
-        ## sss
-        dat <- copy(meta[, .(chr = Chr, position = bp, prob = prob_sss, log10bf = log10bf_sss)])
-        gp_sss <- get_gene_prob(dat, subgenes, extension = 1000)
-        ## cond
-        dat <- copy(meta[, .(chr = Chr, position = bp, prob = prob1_cond, log10bf = NA)])
-        gp_cond <- get_gene_prob(dat, subgenes, extension = 1000)
+        # # get gene prob
+        # ## sss
+        # dat <- copy(meta[, .(chr = Chr, position = bp, prob = prob_sss, log10bf = log10bf_sss)])
+        # gp_sss <- get_gene_prob(dat, subgenes, extension = 1000)
+        # ## cond
+        # dat <- copy(meta[, .(chr = Chr, position = bp, prob = prob1_cond, log10bf = NA)])
+        # gp_cond <- get_gene_prob(dat, subgenes, extension = 1000)
 
         ######## plot ########
         jitwid = (ed - st)/50
@@ -168,9 +201,9 @@ for (i in seq_len(nrow(qtls))) {
         labs(title = paste0("FINEMAP_sss, ",region,"_",tragen), 
                 subtitle = paste0(msg_sss[1],";",msg_sss[2]),
                 x = paste0("chr",meta[1,Chr])) +
-        geom_segment(data = subgenes, aes(x=START, y=-0.1, xend=END, yend=-0.1, color=tt),
+        geom_segment(data = subgenes, aes(x=start, y=-0.1, xend=end, yend=-0.1, color=tt),
                 arrow = arrow(length = unit(0.02, "npc")), arrow.fill = subgenes$tt, inherit.aes=FALSE) +
-        geom_text(data = subgenes, aes(x = mid, y = -0.3, label = GeneName, color=tt),
+        geom_text(data = subgenes, aes(x = mid, y = -0.3, label = gene_name, color=tt),
                 size = 3, angle = 90, position = position_dodge(width=jitwid), inherit.aes=FALSE) + 
                 ylim(-0.5,1) + xlim(st,ed)
 
@@ -179,9 +212,9 @@ for (i in seq_len(nrow(qtls))) {
         geom_point(aes(x = bp, y = prob1_cond, color = factor(color_cond), size = factor(color_cond)), alpha = 0.5) +
         ggformat +
         labs(title = paste0("FINEMAP_cond, ",region,"_",tragen), x=paste0("chr",meta[1,Chr])) +
-        geom_segment(data = subgenes, aes(x=START, y=-0.1, xend=END, yend=-0.1, color=tt),
+        geom_segment(data = subgenes, aes(x=start, y=-0.1, xend=end, yend=-0.1, color=tt),
                 arrow = arrow(length = unit(0.02, "npc")), arrow.fill = subgenes$tt, inherit.aes=FALSE) +
-        geom_text(data = subgenes, aes(x = mid, y = -0.3, label = GeneName, color=tt),
+        geom_text(data = subgenes, aes(x = mid, y = -0.3, label = gene_name, color=tt),
                 size = 3, angle = 90, position = position_dodge(width=jitwid), inherit.aes=FALSE) + 
                 ylim(-0.5,1) + xlim(st,ed)
                 
@@ -200,6 +233,10 @@ for (i in seq_len(nrow(qtls))) {
 }
 
 dev.off()
+
+writeLines(msg_sss, outcs_sss)
+write.table(cs_sss, outcs_sss, append=TRUE, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")
+write.table(gp_sss, outgp_sss, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")
 
 
 

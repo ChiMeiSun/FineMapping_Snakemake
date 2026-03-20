@@ -50,4 +50,4 @@ dat_imp[, lambdaGC_imp := {
 
 comb <- merge(dat_arr, dat_imp, by = c("gen", "pheno"), all = TRUE)
 
-write.table(comb, outxt, quote = FALSE, row.names = FALSE, col.names = FALSE, sep = "\t")
+write.table(comb, outxt, quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")

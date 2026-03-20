@@ -1,6 +1,7 @@
-# args = c("PLOTS/manplot/mlma/all/BW32_all.png", "PLOTS/manplot/mlma/all/EW40_all.png",
-# "PLOTS/manplot/fastGWA/all/BW32_all.png", "PLOTS/manplot/fastGWA/all/EW40_all.png", 
-# "PLOTS/manplot/fastGWA_cov/all/BW32covEW40_all.png","PLOTS/manplot/fastGWA_cov/all/EW40covBW32_all.png",
+# args = c("PLOTS/manplot/mlma/all/BW32_all.png", "PLOTS/manplot/mlma/all/EW30_all.png",
+# "PLOTS/manplot/mlma_impute/all/BW32_all.png", "PLOTS/manplot/mlma_impute/all/EW30_all.png", 
+# "PLOTS/manplot/mlma_cov/all/BW32covEW30_all.png","PLOTS/manplot/mlma_cov/all/EW30covBW32_all.png",
+# "PLOTS/manplot/mlmaimp_cov/all/BW32covEW30_all.png","PLOTS/manplot/mlmaimp_cov/all/EW30covBW32_all.png",
 # "PLOTS/publish/fig4.png")
 
 args = commandArgs(TRUE)
@@ -9,11 +10,10 @@ args
 library(magick)
 library(data.table)
 
-# Fig. 4 Array and impute GWAS for BW32 and EW40, group “all” + impute GWAS with covariate for BW32 and EW40, group “all”
-files = args[c(1,3,5,2,4,6,7)]
+# Fig. 4 Array and impute GWAS for BW32 and EW30, group “all” + impute GWAS with covariate for BW32 and EW30, group “all”
+files = args[c(1,3,5,7,2,4,6,8)]
 
-files = files[-length(files)]
-rows = ceiling( (length(files)) / 3)
+rows = ceiling( (length(files)) / 4)
 list = list()
 for (i in 1:length(files)){
     filepath = files[i]

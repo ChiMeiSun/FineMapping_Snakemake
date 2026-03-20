@@ -113,7 +113,7 @@ make_mle_fail <- function(unisnpannot, cat, reason = 0) {
 #
 pdf(outplot, width = 15, height = 9)
 
-# combine EN traits
+# combine traits
 regions <- readLines(credp, n = 1)
 regions <- unlist(strsplit(sub("#", "", regions), ","))
 
@@ -255,10 +255,11 @@ for (i in 1:length(regions)){
     # rewrite signal for it to run
     grp <- filter_cs[, .GRP, by = .(pheno, signal)][, GRP := GRP - 1]
     
-    filter_cs <- filter_cs[grp, on = .(pheno, signal)][
+    filter_cs_rewrite <- copy(filter_cs)
+    filter_cs_rewrite <- filter_cs_rewrite[grp, on = .(pheno, signal)][
     ,savesignal := signal][, signal := GRP][, GRP := NULL]
 
-    bfmap <- filter_cs[SNPname %in% unisnpannot$SNPname,]
+    bfmap <- filter_cs_rewrite[SNPname %in% unisnpannot$SNPname,]
     check <- bfmap[, .N, by = .(signal, SNPindex)][N>1]
     if (nrow(check) > 0) warning("Multiple signals have identical signal index")
 
@@ -325,7 +326,8 @@ for (i in 1:length(regions)){
       res
       },
       error = function(e){
-        cols <- c(colnames(qtl_cs), "category", "renormedProb","SNPindex2")
+        cols <- c(setdiff(colnames(qtl_cs), c("savesignal", "SNPindex2")), 
+                  "category", "renormedProb","cat_group", "diff_prob", "mle_status")
         res <- data.table(matrix(NA, nrow = 0, ncol = length(cols)))
         setnames(res, cols)
         res
