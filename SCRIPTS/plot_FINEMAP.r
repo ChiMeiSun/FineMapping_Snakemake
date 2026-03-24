@@ -109,6 +109,7 @@ for (i in seq_len(nrow(qtls))) {
         pp_sss <- sprintf("%s/%s", sssp, region) 
 
         snp_sss <- fread(sprintf("%s/data.snp", pp_sss))
+        snp_sss <- snp_sss[prob > 0]
         # dim = GWAS summary statistics
         # prob: marginal Posterior Inclusion Probabilities (PIP) of SNP causality
         # log10bf: log10 Bayes factors, quantifies the evidence that the l th SNP is causal with log10 Bayes factors greater than 2 reporting considerable evidence
@@ -119,11 +120,7 @@ for (i in seq_len(nrow(qtls))) {
         # h2: heritability contribution of SNPs
         # dim = 50k (default num of config to be saved; config can contain >1 SNP)
         
-        cred1_sss <- fread(sprintf("%s/data.cred1", pp_sss), skip = 5)
-        sum(cred1_sss$prob1)
-
-        meta_sss <- merge(cred1_sss[, .(cred1)], 
-                        snp_sss[, .(rsid, prob, log10bf)], by.x = "cred1", by.y = "rsid", all.x = TRUE)
+        meta_sss <- copy(snp_sss)
         meta_sss[, color := 0]
         meta_sss[prob == max(prob) & log10bf == max(log10bf), color := 1]
         
@@ -135,17 +132,17 @@ for (i in seq_len(nrow(qtls))) {
                         readLines(sprintf("%s/data.cred1", pp_sss), n = 5)
                 )
                 cred2p <- sprintf("%s/data.cred2", pp_sss)
-                if (file.exists(cred2p)) msg_sss <- c(msg_sss, readLines(cred2p, n = 5))
+                if (file.exists(cred2p)) {
+                        msg_sss <- c(msg_sss, readLines(cred2p, n = 5))
+                }
 
-                cs_sss <- rbind(cs_sss,
-                        merge(cred1_sss[, .(SNPanme = cred1)], 
-                                snp_sss[, .(SNPanme = rsid, Chr = chromosome, Pos = position, prob, log10bf)], 
-                                by = "SNPanme", all.x = TRUE)
-                )
+                tmp_cs <- snp_sss[, .(SNPname = rsid, Chr = chromosome, Pos = position, prob, log10bf)]
                 
-                gp_sss <- rbind(gp_sss,
-                        get_gene_prob(cs_sss[, .(Chr, Pos, prob, log10bf)], subgenes, extension = 1000)
-                )
+                gp_i <- get_gene_prob(tmp_cs[, .(Chr, Pos, prob, log10bf)], subgenes, extension = 1000)
+                gp_i <- gp_i[sum_prob >= 0.01][, -c("randn", "tt")]
+                
+                cs_sss <- rbind(cs_sss, tmp_cs)
+                gp_sss <- rbind(gp_sss, gp_i)
         }
         ##
 
@@ -169,8 +166,8 @@ for (i in seq_len(nrow(qtls))) {
         # merge sss and cond
         colnames(meta_sss) <- paste0(colnames(meta_sss), "_sss")
         colnames(cred_cond) <- paste0(colnames(cred_cond), "_cond")
-        meta <- merge(meta_sss, cred_cond, by.x = "cred1_sss", by.y = "cred1_cond", all = TRUE)
-        meta <- merge(meta, mlma, by.x = "cred1_sss", by.y = "SNP", all.x = TRUE)
+        meta <- merge(meta_sss, cred_cond, by.x = "rsid_sss", by.y = "cred1_cond", all = TRUE)
+        meta <- merge(meta, mlma, by.x = "rsid_sss", by.y = "SNP", all.x = TRUE)
 
 
         # # get gene prob

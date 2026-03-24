@@ -43,7 +43,7 @@ extract_info <- function(p) {
             data = sub("^[^_]*_(.*)\\..*", "\\1", p), 
             region = sub(".*FS/([^_]+)_.*", "\\1", p),
             chr = sub(".*FS/(.*):.*", "\\1", p),
-            method = "BFMAP_FS")
+            method = "BFMAP-FS")
 
     } else if (length(grep("FINEMAP", p)) > 0 ) {
         data.table(
@@ -51,7 +51,7 @@ extract_info <- function(p) {
             data = sprintf("%s_%s", strsplit(p, "/")[[1]][3], strsplit(p, "/")[[1]][4]), 
             region = sub(".*sss/(.*)/.*", "\\1", p),
             chr = sub(".*sss/(.*):.*", "\\1", p),
-            method = "FINEMAP_sss")
+            method = "FINEMAP-sss")
     }
 
 }
@@ -97,7 +97,7 @@ process_file <- function(res_i) {
     md <- res_i$method
     set <- res[method == md & chr == res_i$chr]
 
-    if (md == "BFMAP_FS") {
+    if (md == "BFMAP-FS") {
         # credset_ori <- get_credset(set[QTL_window == "Original"])
         # credset <- get_credset(res_i)
         # op_perc <- overlap_perc_BFMAP(credset_ori, credset)
@@ -105,7 +105,7 @@ process_file <- function(res_i) {
         leadsnp <- dat[order(-log_sBF, -normedProb)][
             1, .(leadSNP = SNPname, pos = Pos, log10bf = log_sBF, prob = normedProb)]
 
-    } else if (md == "FINEMAP_sss") {
+    } else if (md == "FINEMAP-sss") {
         # credset_ori <- get_credset(set[QTL_window == "Original"])
         # credset <- get_credset(res_i)
         # op_perc <- overlap_perc_FINEMAP(credset_ori, credset)
@@ -137,4 +137,7 @@ res <- res[, -c("file", "region", "pos")][
     order(data, chr, method)
     ]
 
+dataorder <- paste0(c("EN1", "EN13", "EW30", "EW70", "BW32"), "_all")
+res$data <- factor(res$data, levels = dataorder)
+setorder(res, data, chr)
 write.table(res, outxt, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")

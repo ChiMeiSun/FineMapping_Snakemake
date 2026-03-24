@@ -137,7 +137,7 @@ for (i in 1:length(regions)){
   ed = as.numeric(unlist(strsplit(reg, "[:-]"))[3])
   
   tragen <- sub(".*recalc_(.*).pdf$", "\\1", outplot)
-  if (c == 27) tragen <- sub("BWEWs", "BW32", tragen)
+  if (c == 1 | c == 27) tragen <- sub("BWEWs", "BW32", tragen)
 
   print(sprintf("Running QTL %s for %s", reg, tragen))
   
@@ -205,14 +205,14 @@ for (i in 1:length(regions)){
 
   gene_probs_c_ori <- gene_probs_c_ori[summed_prob >= 0.01,]
   
-  tab <- qtl_cs[, .N, by = .(signal, pheno)][,N := NULL]
+  tab <- qtl_cs[, .N, by = .(signal, pheno, savesignal)][,N := NULL]
   gene_probs_c_ori <- merge(gene_probs_c_ori, tab, by = "signal", all.x = TRUE)
   
-  gene_probs_c_ori <- gene_probs_c_ori[, signal := NULL][
+  gene_probs_c_ori <- gene_probs_c_ori[, signal := savesignal][
     GOterm_name == "", GOterm_name := "/"
   ][
     order(-summed_prob, pheno)
-  ]
+  ][, savesignal := NULL]
 
   gene_probs_ori[[i]] <- gene_probs_c_ori
   gene_probs_c_ori[, mid := (start + end) / 2 ]
@@ -345,19 +345,20 @@ for (i in 1:length(regions)){
     )
     
     # 
+    tab <- renormed_bfmap_c[, .N, by = .(signal, pheno, savesignal)][,N := NULL]
+    gene_probs_c_re <- merge(gene_probs_c_re, tab, by = "signal", all.x = TRUE)
+    gene_probs_c_re[, signal := savesignal][, savesignal := NULL]
+    gene_probs_c_re[GOterm_name == "", GOterm_name := "/"][
+      , mid := (start + end) / 2
+    ]
+    #
     renormed_bfmap_c[, signal := savesignal][
       , savesignal := NULL][, SNPindex2 := NULL]
     renormed_bfmap_c[, cat_group := cat]
     renormed_bfmap_c[, diff_prob := renormedProb - normedProb]
     renormed_bfmap_c <- renormed_bfmap_c[order(signal, -renormedProb)]
 
-    #
-    tab <- tmp[, .N, by = .(signal, pheno)][,N := NULL]
-    gene_probs_c_re <- merge(gene_probs_c_re, tab, by = "signal", all.x = TRUE)
-    gene_probs_c_re[, signal := NULL]
-    gene_probs_c_re[GOterm_name == "", GOterm_name := "/"][
-      , mid := (start + end) / 2
-    ]
+
 
     # gene_probs_c_ori[, pheno := as.factor(pheno)]
     # gene_probs_c_re[, pheno := as.factor(pheno)]

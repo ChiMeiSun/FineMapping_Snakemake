@@ -93,7 +93,7 @@ for (i in 1:length(fs)){
         shQuote(bim)
     )    
     nqtl <- system(cmd, intern = TRUE)
-    sum_h2[[i]] <- list(tragen = tragen, region = region, h2 = h2, var_cs = nrow(dat), var_qtl = nqtl)
+    sum_h2[[i]] <- list(tragen = tragen, region = region, h2 = h2, var_cs = length(unique(dat$SNPname)), var_qtl = nqtl)
     
     subgenes = genes[chr==cc & start>=st & end<=ed,]
     set.seed(123)

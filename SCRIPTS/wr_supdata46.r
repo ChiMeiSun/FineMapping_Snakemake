@@ -1,11 +1,9 @@
 # args <- c("RESULTS/supdata/supdata.xlsx", 
-# "RESULTS/BFMAPrecalc/BW32/geneprobs_BW32_all.txt")
+# "RESULTS/BFMAPrecalc/ENs/geneprobs_ENs_all.txt",
+# "RESULTS/BFMAPrecalc/BWEWs/geneprobs_BWEWs_all.txt")
 
 # args <- c("RESULTS/supdata/supdata.xlsx", 
-# "RESULTS/BFMAPrecalc/BW32/geneprobsori_BW32_all.txt")
-
-# args <- c("RESULTS/supdata/supdata.xlsx", 
-# "RESULTS/BFMAPrecalc/EN2/credsets_EN2_all.txt")
+# "RESULTS/BFMAPrecalc/BWEWs/credsets_BWEWs_all.txt")
 
 args <- commandArgs(TRUE)
 args
@@ -26,4 +24,10 @@ sheet_names <- sub("geneprobsori_", "", sheet_names)
 sheet_names <- sub("geneprobs_", "", sheet_names)
 dat <- setNames(lapply(files, fread), sheet_names)
 
+if (mark == "gp") {
+    dat <- lapply(dat, function(d) {
+        d <- d[, -c("start_ext", "end_ext", "mid")]
+        setorder(d, chr, gene_id, -summed_prob_re)
+    })
+}
 write_xlsx(dat, path = args[1])

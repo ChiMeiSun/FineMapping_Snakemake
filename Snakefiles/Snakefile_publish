@@ -238,10 +238,13 @@ phenos = ['EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','
 rule wr_supdata2:
     input:
         script = "SCRIPTS/wr_supdata2.r",
+        fpvs = "RESULTS/analysis/BFMAPvsFINEMAP.txt",
+        filtercs1 = "RESULTS/BFMAPrecalc/BWEWs/credsets_BWEWs_all.txt",
+        filtercs2 = "RESULTS/BFMAPrecalc/ENs/credsets_ENs_all.txt",
         bfmaph2 = expand("RESULTS/BFMAP/{pheno}/h2_{pheno}_{gen}.txt", pheno=phenos, gen='all'),
         finemapcssss = expand("RESULTS/FINEMAP/{pheno}/{gen}/sss/credsets.txt", pheno=phenos, gen='all')
     output:
-        tab = "RESULTS/supdata/SupplementaryData2.txt"
+        ws = "RESULTS/supdata/SupplementaryData2.xlsx"
     log: "LOGS/supdata/supdata2.log"
     benchmark: "LOGS/supdata/supdata2.bench"
     threads: 1
@@ -252,14 +255,15 @@ rule wr_supdata2:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     shell:
         """
-        ( Rscript --vanilla {input.script} {output.tab} {input.bfmaph2} {input.finemapcssss}
+        ( Rscript --vanilla {input.script} {output.ws} {input.fpvs} {input.filtercs1} {input.filtercs2} {input.bfmaph2} {input.finemapcssss}
         ) &> {log} 
         """ 
 
 rule wr_supdata3:
     input:
-        script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobsori_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
+        script = "SCRIPTS/wr_supdata3.r",
+        files1 = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobsori_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all'),
+        files2 = expand("RESULTS/FINEMAP/{pheno}/all/sss/geneprobs.txt", pheno=phenos, gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData3.xlsx"
     log: "LOGS/supdata/supdata3.log"
@@ -272,13 +276,13 @@ rule wr_supdata3:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     shell:
         """
-        ( Rscript --vanilla {input.script} {output.ws} {input.files}
+        ( Rscript --vanilla {input.script} {output.ws} {input.files1} {input.files2}
         ) &> {log} 
         """ 
 
 rule wr_supdata4:
     input:
-        script = "SCRIPTS/wr_supdata3456.r",
+        script = "SCRIPTS/wr_supdata46.r",
         files = expand("RESULTS/BFMAPrecalc/{pheno}/enrichcat_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData4.xlsx"
@@ -298,8 +302,9 @@ rule wr_supdata4:
 
 rule wr_supdata5:
     input:
-        script = "SCRIPTS/wr_supdata3456.r",
-        files = expand("RESULTS/BFMAPrecalc/{pheno}/credsets_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
+        script = "SCRIPTS/wr_supdata5.r",
+        files1 = expand("RESULTS/BFMAPrecalc/{pheno}/credsets_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all'),
+        files2 = expand("RESULTS/FINEMAP/{pheno}/all/sss/credsets.txt", pheno=phenos, gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData5.xlsx"
     log: "LOGS/supdata/supdata5.log"
@@ -312,13 +317,13 @@ rule wr_supdata5:
         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
     shell:
         """
-        ( Rscript --vanilla {input.script} {output.ws} {input.files}
+        ( Rscript --vanilla {input.script} {output.ws} {input.files1} {input.files2}
         ) &> {log} 
         """ 
 
 rule wr_supdata6:
     input:
-        script = "SCRIPTS/wr_supdata3456.r",
+        script = "SCRIPTS/wr_supdata46.r",
         files = expand("RESULTS/BFMAPrecalc/{pheno}/geneprobs_{pheno}_{gen}.txt", pheno=['ENs', 'BWEWs'], gen='all')
     output:
         ws = "RESULTS/supdata/SupplementaryData6.xlsx"
