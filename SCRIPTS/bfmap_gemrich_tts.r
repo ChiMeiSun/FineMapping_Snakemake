@@ -160,7 +160,6 @@ for (i in 1:length(regions)){
     cred_i <- cred_i[Chr == c & Pos >= st & Pos <= ed,]
     cred_i[, pheno := p]
   }))
-  qtl_cs <- qtl_cs[order(-normedProb), .SD[1], by = SNPname]
 
   # rewrite signal for it to run
   grp <- qtl_cs[, .GRP, by = .(pheno, signal)][, GRP := GRP - 1]
@@ -224,7 +223,8 @@ for (i in 1:length(regions)){
     print(paste0("Running QTL ",reg,", cat_group: ",cat))
 
     if (nrow(filter_cs) > 0) {
-      snpannot <- vep[filter_cs[, .(Chr, SNPname)], on = .(SNPname = SNPname)]
+      tmp <- filter_cs[, .SD[1], by = .(Chr, SNPname)]
+      snpannot <- vep[tmp, on = .(SNPname = SNPname)]
         print("duplicated SNPs from vep")
         print(snpannot[duplicated(SNPname) | duplicated(SNPname, fromLast = TRUE)])
       setnames(snpannot, cat, "multi_cat")
@@ -275,12 +275,12 @@ for (i in 1:length(regions)){
       mle_result_c <- make_mle_fail(unisnpannot, cat, 2)
     } else {
       # if cat prop too small, merge as "remaining"
-      # tab <- table(unisnpannot$multi_cat)
-      # cat_prop_c <- as.data.table(tab / nrow(unisnpannot))
-      # colnames(cat_prop_c) = c("category", "prop")
-      # sparse_cats <- cat_prop_c[prop < min_p, category]
-      # if (length(sparse_cats) == 1) sparse_cats = NULL
-      # unisnpannot[, multi_cat := ifelse(multi_cat %in% sparse_cats, "remaining", multi_cat)]
+      tab <- table(unisnpannot$multi_cat)
+      cat_prop_c <- as.data.table(tab / nrow(unisnpannot))
+      colnames(cat_prop_c) = c("category", "prop")
+      sparse_cats <- cat_prop_c[prop < min_p, category]
+      if (length(sparse_cats) == 1) sparse_cats = NULL
+      unisnpannot[, multi_cat := ifelse(multi_cat %in% sparse_cats, "remaining", multi_cat)]
       
       tab <- table(unisnpannot$multi_cat)
       cat_prop_c <- as.data.table(tab / nrow(unisnpannot))
@@ -452,8 +452,10 @@ for (i in 1:length(regions)){
 
 
     # plot ppc per gene
-    ggeneori <- ggplot(gene_probs_c_ori) +
-            geom_point(aes(x = mid, y = summed_prob, color = pheno), size = 2, alpha = 0.7) +
+    tmp <- copy(gene_probs_c_ori)
+    tmp[, GOterm_name := substr(GOterm_name, 1, 10)]
+    ggeneori <- ggplot(tmp) +
+            geom_point(aes(x = mid, y = summed_prob, fill = pheno), size = 2, alpha = 0.7) +
             geom_segment(aes(x = start, xend = end, y = -0.1, yend = -0.1, color = GOterm_name),
                     arrow = arrow(length = unit(0.05, "npc")), inherit.aes=FALSE, show.legend = FALSE) +
             labs(title = paste0(tragen,", QTL-",reg,", ori summed_prob of genes(zoom in)"), 
@@ -465,7 +467,9 @@ for (i in 1:length(regions)){
             theme +
             ylim(-0.5,1)
 
-    ggenere <- ggplot(gene_probs_c_re) +
+    tmp <- copy(gene_probs_c_re)
+    tmp[, GOterm_name := substr(GOterm_name, 1, 10)]
+    ggenere <- ggplot(tmp) +
             geom_point(aes(x = mid, y = summed_prob, color = pheno), size = 2, alpha = 0.7) +
             geom_segment(aes(x = start, xend = end, y = -0.1, yend = -0.1, color = GOterm_name),
                     arrow = arrow(length = unit(0.05, "npc")), inherit.aes=FALSE, show.legend = FALSE) +

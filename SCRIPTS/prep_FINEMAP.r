@@ -36,64 +36,55 @@ linesFM_sss <- c("z;ld;snp;config;cred;log;n_samples")
 linesFM_cond <- c("z;ld;snp;config;cred;log;n_samples")
 
 
-for (i in seq_len(nrow(qtls))) {
-    # test minor alteration of regions
-    # tmp <- qtls[i]
-    # tqtls <- data.table(Chr = tmp$Chr,
-    #             st = c(tmp$exdst, tmp$exdst - 1e6, tmp$exdst + 1e6),
-    #             ed = c(tmp$exded, tmp$exded + 1e6, tmp$exded - 1e6)
-    # )
-    tqtls <- qtls
-    
-    for (j in seq_len(nrow(tqtls))) {
-    
-        chr <- tqtls$Chr[j]
-        st <- tqtls$st[j]
-        ed <- tqtls$ed[j]
-        region <- sprintf("%s:%s-%s", chr, format(st, scientific = FALSE), format(ed, scientific = FALSE))    
-        
-        namei <- sprintf("%s/%s/data", outpath, region)
-        sssi <- sprintf("%s/sss/%s/data", outpath, region)
-        condi <- sprintf("%s/cond/%s/data", outpath, region)
+for (j in seq_len(nrow(qtls))) {
 
-        lineldi <- paste(c(
-                    paste0(namei, c(".z", ".bcor", ".incl", ".ld")), 
-                    paste0(bfile, c(".bgen", ".bgen.bgi", ".sample")), 
-                    nsam), collapse = ";"
-                )
-        linefmi_sss <- paste(c(
-                paste0(namei, c(".z", ".ld")), 
-                paste0(sssi, c(".snp", ".config", ".cred", ".log")), 
+    chr <- qtls$Chr[j]
+    st <- qtls$exdst[j]
+    ed <- qtls$exded[j]
+    region <- sprintf("%s:%s-%s", chr, format(st, scientific = FALSE), format(ed, scientific = FALSE))    
+    
+    namei <- sprintf("%s/%s/data", outpath, region)
+    sssi <- sprintf("%s/sss/%s/data", outpath, region)
+    condi <- sprintf("%s/cond/%s/data", outpath, region)
+
+    lineldi <- paste(c(
+                paste0(namei, c(".z", ".bcor", ".incl", ".ld")), 
+                paste0(bfile, c(".bgen", ".bgen.bgi", ".sample")), 
                 nsam), collapse = ";"
             )
-        linefmi_cond <- paste(c(
-                paste0(namei, c(".z", ".ld")), 
-                paste0(condi, c(".snp", ".config", ".cred", ".log")), 
-                nsam), collapse = ";"
-            )
-        linesLD <- c(linesLD, lineldi)
-        linesFM_sss <- c(linesFM_sss, linefmi_sss)
-        linesFM_cond <- c(linesFM_cond, linefmi_cond)
+    linefmi_sss <- paste(c(
+            paste0(namei, c(".z", ".ld")), 
+            paste0(sssi, c(".snp", ".config", ".cred", ".log")), 
+            nsam), collapse = ";"
+        )
+    linefmi_cond <- paste(c(
+            paste0(namei, c(".z", ".ld")), 
+            paste0(condi, c(".snp", ".config", ".cred", ".log")), 
+            nsam), collapse = ";"
+        )
+    linesLD <- c(linesLD, lineldi)
+    linesFM_sss <- c(linesFM_sss, linefmi_sss)
+    linesFM_cond <- c(linesFM_cond, linefmi_cond)
 
-        sub <- mlma[Chr == chr & bp >= st & bp <= ed,
-            .(rsid = SNP, chromosome = Chr, position = bp, allele1 = A1, allele2 = A2, maf = Freq, beta = b, se)]
+    sub <- mlma[Chr == chr & bp >= st & bp <= ed,
+        .(rsid = SNP, chromosome = Chr, position = bp, allele1 = A1, allele2 = A2, maf = Freq, beta = b, se)]
 
-        # rm mkdir 
-        fp <- sprintf("%s/%s", outpath, region)
-        system(sprintf("rm -rf %s", fp))
-        system(sprintf("mkdir %s", fp))
+    # rm mkdir 
+    fp <- sprintf("%s/%s", outpath, region)
+    system(sprintf("rm -rf %s", fp))
+    system(sprintf("mkdir %s", fp))
 
-        fp <- sprintf("%s/sss/%s", outpath, region)
-        system(sprintf("rm -rf %s", fp))
-        system(sprintf("mkdir %s", fp))
+    fp <- sprintf("%s/sss/%s", outpath, region)
+    system(sprintf("rm -rf %s", fp))
+    system(sprintf("mkdir %s", fp))
 
-        fp <- sprintf("%s/cond/%s", outpath, region)
-        system(sprintf("rm -rf %s", fp))
-        system(sprintf("mkdir %s", fp))
+    fp <- sprintf("%s/cond/%s", outpath, region)
+    system(sprintf("rm -rf %s", fp))
+    system(sprintf("mkdir %s", fp))
 
-        write.table(sub, sprintf("%s.z", namei), sep = " ", quote = FALSE, col.names = TRUE, row.names = FALSE)
-        write.table(aniids, sprintf("%s.incl", namei), sep = " ", quote = FALSE, col.names = FALSE, row.names = FALSE)
-    }
+    write.table(sub, sprintf("%s.z", namei), sep = " ", quote = FALSE, col.names = TRUE, row.names = FALSE)
+    write.table(aniids, sprintf("%s.incl", namei), sep = " ", quote = FALSE, col.names = FALSE, row.names = FALSE)
+
 }
 writeLines(linesLD, masterLD)
 writeLines(linesFM_sss, masterFM_sss)

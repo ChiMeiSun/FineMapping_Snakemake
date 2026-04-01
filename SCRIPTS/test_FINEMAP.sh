@@ -45,3 +45,52 @@ echo heritability: $H2
 
 # forward selection for fine mapping
 SCRIPTS/packages/bfmap_0.91/bfmap --sss --phenotype_file tmp_pheno.csv --trait_name EW70             --binary_genotype_file INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC             --snp_info_file tmp_4:74175424-77608972.csv             --binary_grm_file INTERMEDIATE/BFMAPsss/GRM/allsnp_all             --heritability $H2             --covariate_file INTERMEDIATE/covar/covar_bfmap.csv             --output RESULTS/BFMAPsss/EW70/FS/4:74175424-77608972_EW70_all
+
+
+
+# BFMAP
+    params:
+        varcomp = "RESULTS/BFMAP/{pheno}/VC/{region}_{pheno}_{gen}",
+        fsele = "RESULTS/BFMAP/{pheno}/FS/{region}_{pheno}_{gen}",
+        bfile = "INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC",
+        grm = "INTERMEDIATE/BFMAP/GRM/allsnp_all",
+
+# RESULTS/BFMAP/EW30/FS/4:74068945-77725756_EW30_all.csv
+            ## create snpinfo file
+            awk -v chrom=4 -v start=74068945 -v end=77725756 '
+                $1 == chrom && $4 >= start && $4 <= end {{print $2}}
+            ' INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bim > tmp_4:74068945-77725756.txt
+            # # maf 0.01
+            # plink --bfile INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC --extract tmp_4:74068945-77725756.txt --maf 0.01 --make-bed --allow-extra-chr --chr-set 40 --out tmp
+
+            echo id > tmp_4:74068945-77725756.csv
+            cat tmp_4:74068945-77725756.txt >> tmp_4:74068945-77725756.csv
+
+            ## write tmp_pheno.csv
+            Rscript --vanilla SCRIPTS/prep_BFMAP.r DATA/pheno/Phenotypes_Final.csv DATA/geno/2024-04-19_IMAGEcomplete_CR_SCM_GGA6_Ref0_Alt1.RData
+
+
+            ## make grm (QTL genotypes for h2)
+            SCRIPTS/packages/bfmap_0.91/bfmap --compute_grm 2 --binary_genotype_file INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC \
+            --snp_info_file tmp_4:74068945-77725756.csv \
+            --min_maf 0.01 \
+            --output_file tmp_4:74068945-77725756
+
+            ## regional QTL h2 estimation
+            SCRIPTS/packages/bfmap_0.91/bfmap --varcomp --phenotype_file tmp_pheno.csv --trait_name EW30 \
+            --binary_grm_file INTERMEDIATE/BFMAP/GRM/allsnp_all \
+            --covariate_file INTERMEDIATE/covar/covar_bfmap.csv \
+            --output test/4:74068945-77725756_EW30_all
+
+            H2=$(grep "proportion"  test/4:74068945-77725756_EW30_all.varcomp.csv | cut -d',' -f2)
+            echo heritability: $H2
+
+
+            # forward selection for fine mapping
+            SCRIPTS/packages/bfmap_0.91/bfmap --phenotype_file tmp_pheno.csv --trait_name EW30 \
+            --binary_genotype_file INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC \
+            --snp_info_file tmp_4:74068945-77725756.csv \
+            --binary_grm_file INTERMEDIATE/BFMAP/GRM/allsnp_all \
+            --heritability $H2 \
+            --covariate_file INTERMEDIATE/covar/covar_bfmap.csv \
+            --output test/4:74068945-77725756_EW30_all

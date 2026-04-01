@@ -1,5 +1,8 @@
 # args <- c("RESULTS/supdata/SupplementaryData2.xlsx", 
+# "Snakemake_Liftover_Impute/Output/check_imputation/CV_gt_imp_rep2_fold5_MAFbin.txt",
+# "RESULTS/gcta/lambdaGC.txt",
 # "RESULTS/analysis/BFMAPvsFINEMAP.txt",
+
 # "RESULTS/BFMAPrecalc/BWEWs/credsets_BWEWs_all.txt",
 # "RESULTS/BFMAPrecalc/ENs/credsets_ENs_all.txt",
 # "RESULTS/BFMAP/BW32/h2_BW32_all.txt",
@@ -18,9 +21,11 @@ library(ggplot2)
 #
 outp <- args[1]
 f1p <- args[2]
-dat1p <- args[3]
-dat2p <- args[4]
-filesp <- args[5:length(args)]
+f2p <- args[3]
+f3p <- args[4]
+dat1p <- args[5]
+dat2p <- args[6]
+filesp <- args[7:length(args)]
 tragenorder <- paste0(c('EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13','BW32','EW30','EW40','EW50','EW70'), "_all")
 #
 library(data.table)
@@ -90,7 +95,7 @@ res_bfmap <- rbindlist(lapply(filesp_bfmap, function (p) {
     dat[, chr := as.numeric(sub(":.*", "", region)) ]
     dat[, st := as.numeric(sub(".*:(.*)-.*", "\\1", region)) ]
 
-    dat <- dat[, .SD[which(abs(st - median(st)) == min(abs(st - median(st))))[1]], by = chr]
+    dat <- dat[, .SD[which.max(st)], by = chr]
     dat[, st := NULL]
 }))
 
@@ -133,7 +138,7 @@ setnames(allres, cols_bfmap, paste0("BFMAP_", cols_bfmap))
 setnames(allres, cols_finemap, paste0("FINEMAP_", cols_finemap))
 
 # write excel
-out <- list(fread(f1p), allres)
+out <- list(fread(f1p), fread(f2p), fread(f3p), allres)
 out <- setNames(out, paste0("Result", 1 : length(out)))
 write_xlsx(out, path = outp)
 

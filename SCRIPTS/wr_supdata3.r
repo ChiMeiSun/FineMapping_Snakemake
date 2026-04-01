@@ -30,13 +30,13 @@ res11 <- rbindlist(lapply(filesp_bfmap_en, function(p) {
 
     dat <- fread(p)
     dat <- dat[, -c("start_ext", "end_ext", "mid")]
-    setorder(dat, chr, gene_id, -summed_prob)
+    setorder(dat, chr, -summed_prob, gene_id)
 }))
 
 res12 <- rbindlist(lapply(filesp_bfmap_w, function(p) {
 
     dat <- fread(p)
-    setorder(dat, chr, gene_id, -summed_prob)
+    setorder(dat, chr, -summed_prob, gene_id)
 }))
 
 # combine finemap
@@ -45,14 +45,14 @@ res21 <- rbindlist(lapply(filesp_finemap_en, function(p) {
     dat <- fread(p)
     dat <- dat[, pheno := strsplit(p, "/")[[1]][3]][, -c("mid")]
 }))
-setorder(res21, chr, gene_id, -sum_prob)
+setorder(res21, chr, -sum_prob, gene_id)
 
 res22 <- rbindlist(lapply(filesp_finemap_w, function(p) {
 
     dat <- fread(p)
     dat <- dat[, pheno := strsplit(p, "/")[[1]][3]][, -c("mid")]
 }))
-setorder(res22, chr, gene_id, -sum_prob)
+setorder(res22, chr, -sum_prob, gene_id)
 
 
 #

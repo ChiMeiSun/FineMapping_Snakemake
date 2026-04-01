@@ -42,7 +42,7 @@ extract_info <- function(p) {
             file = p,
             data = sub("^[^_]*_(.*)\\..*", "\\1", p), 
             region = sub(".*FS/([^_]+)_.*", "\\1", p),
-            chr = sub(".*FS/(.*):.*", "\\1", p),
+            chr = as.numeric(sub(".*FS/(.*):.*", "\\1", p)),
             method = "BFMAP-FS")
 
     } else if (length(grep("FINEMAP", p)) > 0 ) {
@@ -50,7 +50,7 @@ extract_info <- function(p) {
             file = p,
             data = sprintf("%s_%s", strsplit(p, "/")[[1]][3], strsplit(p, "/")[[1]][4]), 
             region = sub(".*sss/(.*)/.*", "\\1", p),
-            chr = sub(".*sss/(.*):.*", "\\1", p),
+            chr = as.numeric(sub(".*sss/(.*):.*", "\\1", p)),
             method = "FINEMAP-sss")
     }
 
@@ -124,7 +124,7 @@ process_file <- function(res_i) {
 # testphenos <- c("BW32", "EW30", "EW70", "EN1", "EN13")
 
 res <- rbindlist(lapply(filesp, extract_info))
-res[, QTL_window := c("+1Mb", "Original", "-1Mb"), by = .(data, chr, method)]
+res[, QTL_window := c("+2Mb", "+1Mb", "Original"), by = .(data, chr, method)]
 
 res <- cbind(res, 
     rbindlist(lapply(1:nrow(res), function(i) {
@@ -133,7 +133,14 @@ res <- cbind(res,
 )
 res[, dist_bp := pos - pos[QTL_window == "Original"], by = .(data, chr, method)]
 
-res <- res[, -c("file", "region", "pos")][
+# res[, size := {
+#   parts <- strsplit(region, "[:-]")[[1]]
+#   as.numeric(parts[3]) - as.numeric(parts[2])
+# }, by = file]
+
+# res[, dist_perc := round(dist_bp / size * 100, 2)]
+
+res <- res[, -c("file", "pos")][
     order(data, chr, method)
     ]
 

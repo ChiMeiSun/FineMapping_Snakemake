@@ -8,3 +8,10 @@ DATA/geno/2024-04-19_IMAGEcomplete_CR_SCM_GGA6_Ref0_Alt1.RData
 /PLOTS
 /RESULTS
 test.pdf
+*.log
+/Snakemake_Liftover_Impute/.snakemake
+*.h
+*.mk
+*.bench
+/Snakemake_Liftover_Impute
+/test

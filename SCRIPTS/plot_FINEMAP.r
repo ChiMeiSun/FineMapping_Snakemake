@@ -5,6 +5,13 @@
 # "RESULTS/FINEMAP/EW70/all/sss/geneprobs.txt",
 # "PLOTS/FINEMAP/EW70/all/data.pdf")
 
+# args <- c("RESULTS/FINEMAP/BW32/all/sss/masterFM", "RESULTS/FINEMAP/BW32/all/cond/masterFM",
+# "DATA/geno/ensembl_genes_GRCg6a.txt",
+# "RESULTS/gcta/mlma_impute/all/BW32_all.mlma",
+# "RESULTS/FINEMAP/BW32/all/sss/credsets.txt",
+# "RESULTS/FINEMAP/BW32/all/sss/geneprobs.txt",
+# "PLOTS/FINEMAP/BW32/all/data.pdf")
+
 args <- commandArgs(TRUE)
 args
 
@@ -26,9 +33,10 @@ qtls <- fread(sssp, select = 1)
 qtls[, region := sub(".*all/(.*)/data.z$", "\\1", z) ]
 qtls[, chr := sub(":.*", "", region) ]
 qtls[, st := as.numeric(sub(".*:(.*)-.*", "\\1", region)) ]
-qtls[, ed := sub(".*-(.*)", "\\1", region) ]
+qtls[, ed := as.numeric(sub(".*-(.*)", "\\1", region)) ]
+qtls[, diff := ed - st]
 
-trueqtls <- qtls[, .SD[which(abs(st - median(st)) == min(abs(st - median(st))))[1]], by = chr]
+trueqtls <- qtls[, .SD[which.min(diff)], by = chr]
 
 sssp <- dirname(sssp)
 condp <- dirname(condp)
@@ -146,27 +154,28 @@ for (i in seq_len(nrow(qtls))) {
         }
         ##
 
-        # --cond
-        pp_cond <- sprintf("%s/%s", condp, region) 
+        # # --cond
+        # pp_cond <- sprintf("%s/%s", condp, region) 
 
-        # snp_cond <- fread(sprintf("%s/data.snp", pp_cond))
-        # dim = GWAS summary statistics
+        # # snp_cond <- fread(sprintf("%s/data.snp", pp_cond))
+        # # dim = GWAS summary statistics
 
-        msg_cond <- fread(sprintf("%s/data.config", pp_cond))
-        condsnp <- msg_cond[rank == 2, config]
-        # dim = 2 lines
+        # msg_cond <- fread(sprintf("%s/data.config", pp_cond))
+        # condsnp <- msg_cond[rank == 2, config]
+        # # dim = 2 lines
 
-        readLines(sprintf("%s/data.cred", pp_cond), n = 4)
-        cred_cond <- fread(sprintf("%s/data.cred", pp_cond), skip = 4)
-        sum(cred_cond$prob1)
-        # dim = credset
-        cred_cond[, color := 0]
-        cred_cond[cred1 == condsnp, color := 1]
+        # readLines(sprintf("%s/data.cred", pp_cond), n = 4)
+        # cred_cond <- fread(sprintf("%s/data.cred", pp_cond), skip = 4)
+        # sum(cred_cond$prob1)
+        # # dim = credset
+        # cred_cond[, color := 0]
+        # cred_cond[cred1 == condsnp, color := 1]
 
         # merge sss and cond
         colnames(meta_sss) <- paste0(colnames(meta_sss), "_sss")
-        colnames(cred_cond) <- paste0(colnames(cred_cond), "_cond")
-        meta <- merge(meta_sss, cred_cond, by.x = "rsid_sss", by.y = "cred1_cond", all = TRUE)
+        # colnames(cred_cond) <- paste0(colnames(cred_cond), "_cond")
+        # meta <- merge(meta_sss, cred_cond, by.x = "rsid_sss", by.y = "cred1_cond", all = TRUE)
+        meta <- copy(meta_sss)
         meta <- merge(meta, mlma, by.x = "rsid_sss", by.y = "SNP", all.x = TRUE)
 
 
@@ -205,15 +214,15 @@ for (i in seq_len(nrow(qtls))) {
                 ylim(-0.5,1) + xlim(st,ed)
 
 
-   g_probc <- ggplot(meta) +
-        geom_point(aes(x = bp, y = prob1_cond, color = factor(color_cond), size = factor(color_cond)), alpha = 0.5) +
-        ggformat +
-        labs(title = paste0("FINEMAP_cond, ",region,"_",tragen), x=paste0("chr",meta[1,Chr])) +
-        geom_segment(data = subgenes, aes(x=start, y=-0.1, xend=end, yend=-0.1, color=tt),
-                arrow = arrow(length = unit(0.02, "npc")), arrow.fill = subgenes$tt, inherit.aes=FALSE) +
-        geom_text(data = subgenes, aes(x = mid, y = -0.3, label = gene_name, color=tt),
-                size = 3, angle = 90, position = position_dodge(width=jitwid), inherit.aes=FALSE) + 
-                ylim(-0.5,1) + xlim(st,ed)
+#    g_probc <- ggplot(meta) +
+#         geom_point(aes(x = bp, y = prob1_cond, color = factor(color_cond), size = factor(color_cond)), alpha = 0.5) +
+#         ggformat +
+#         labs(title = paste0("FINEMAP_cond, ",region,"_",tragen), x=paste0("chr",meta[1,Chr])) +
+#         geom_segment(data = subgenes, aes(x=start, y=-0.1, xend=end, yend=-0.1, color=tt),
+#                 arrow = arrow(length = unit(0.02, "npc")), arrow.fill = subgenes$tt, inherit.aes=FALSE) +
+#         geom_text(data = subgenes, aes(x = mid, y = -0.3, label = gene_name, color=tt),
+#                 size = 3, angle = 90, position = position_dodge(width=jitwid), inherit.aes=FALSE) + 
+#                 ylim(-0.5,1) + xlim(st,ed)
                 
         maxlp <- -log10(min(meta$p))
     g_mlma <- ggplot(meta) +
@@ -226,7 +235,7 @@ for (i in seq_len(nrow(qtls))) {
 
         # pdf("test.pdf", width = 15, height = 9)
         print(g_bfs/g_probs)
-        print(g_probc/g_mlma)
+        print(g_mlma)
 }
 
 dev.off()

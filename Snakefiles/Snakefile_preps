@@ -315,7 +315,7 @@ rule PCA_array:
         """
         set +o pipefail
         (plink --bfile {params.name} {params.arg} --indep-pairwise 100 50 0.3 --threads {threads} --out {params.out}
-          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 10 --threads {threads} --out {params.out}_pruned
+          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 5000 --threads {threads} --out {params.out}_pruned
         ) &> {log} || true
         """
 
@@ -344,7 +344,7 @@ rule PCA_impute:
         """
         set +o pipefail
         (plink --bfile {params.name} {params.arg} --indep-pairwise 100 50 0.3 --threads {threads} --out {params.out}
-          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 10 --threads {threads} --out {params.out}_pruned
+          plink --bfile {params.name} {params.arg} --extract {params.out}.prune.in --pca 5000 --threads {threads} --out {params.out}_pruned
         ) &> {log} || true
         """
 

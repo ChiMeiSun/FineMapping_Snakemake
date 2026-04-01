@@ -66,7 +66,7 @@ rule BFMAP_grm:
     log: "LOGS/BFMAP/GRM/allsnp_all.log"  
     benchmark: "LOGS/BFMAP/GRM/allsnp_all.bench" 
     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
-    threads: 2
+    threads: 10
     resources:
         mem_mb = lambda wildcards, attempt: int(attempt) *250* 1000,
         time = lambda wildcards, attempt: int(attempt) * 2*60,
@@ -77,12 +77,13 @@ rule BFMAP_grm:
     shadow: "shallow"
     shell:
         """
-        (plink --bfile {params.bfile} --maf 0.01 --make-bed --allow-extra-chr --chr-set 40 --out tmp
+        (
         echo id > allsnp.csv
-        cut -f 2 tmp.bim >> allsnp.csv
+        cut -f 2 {params.bfile}.bim >> allsnp.csv
 
         {input.appath} --compute_grm 2 --binary_genotype_file {params.bfile} \
         --snp_info_file allsnp.csv \
+        --min_maf 0.01 --num_threads {threads} \
         --output_file {params.out}
 
         ) &> {log}
@@ -102,11 +103,12 @@ rule BFMAP_gen:
         covar = "INTERMEDIATE/covar/covar_bfmap.csv",
     output:
         varcomp = "RESULTS/BFMAP/{pheno}/VC/{region}_{pheno}_{gen}.varcomp.csv",
+        varcomp_g = "RESULTS/BFMAP/{pheno}/VC/{region}_{pheno}_{gen}_global.varcomp.csv",
         fsele = protected("RESULTS/BFMAP/{pheno}/FS/{region}_{pheno}_{gen}.csv"),
     log: "LOGS/BFMAP/{pheno}/{region}_{pheno}_{gen}.log"  
     benchmark: "LOGS/BFMAP/{pheno}/{region}_{pheno}_{gen}.bench" 
     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
-    threads: 3
+    threads: 10
     resources:
         mem_mb = lambda wildcards, attempt: int(attempt) *80* 1000,
         time = lambda wildcards, attempt: int(attempt) *10* 60,
@@ -122,36 +124,29 @@ rule BFMAP_gen:
         end = lambda w: w.region.split(':')[1].split('-')[1],
     shell:
         """
-        (   ## create snpinfo file
+        (   
+            ## create snpinfo file
             awk -v chrom={params.chrom} -v start={params.start} -v end={params.end} '
                 $1 == chrom && $4 >= start && $4 <= end {{print $2}}
             ' {params.bfile}.bim > tmp_{wildcards.region}.txt
 
             echo id > tmp_{wildcards.region}.csv
             cat tmp_{wildcards.region}.txt >> tmp_{wildcards.region}.csv
-            head tmp_{wildcards.region}.csv
 
             ## write tmp_pheno.csv
             Rscript --vanilla {input.script} {input.pheno} {input.rdata}
 
 
-            ## make grm (QTL genotypes for h2)
-            {input.appath} --compute_grm 2 --binary_genotype_file {params.bfile} \
-            --snp_info_file tmp_{wildcards.region}.csv \
-            --output_file tmp_{wildcards.region}
-
-
             ## run BFMAP
-
-            ## regional QTL h2 estimation
+            ## h2 estimation
             {input.appath} --varcomp --phenotype_file tmp_pheno.csv --trait_name {wildcards.pheno} \
-            --binary_grm_file tmp_{wildcards.region} \
+            --binary_grm_file {params.grm} \
             --covariate_file {input.covar} \
-            --output {params.varcomp}
+            --min_maf 0.01 --num_threads {threads} \
+            --output {params.varcomp}_global
 
-            H2=$(grep "proportion" {output.varcomp} | cut -d',' -f2)
+            H2=$(grep "proportion" {output.varcomp_g} | cut -d',' -f2)
             echo heritability: $H2
-
 
             # forward selection for fine mapping
             {input.appath} --phenotype_file tmp_pheno.csv --trait_name {wildcards.pheno} \
@@ -160,7 +155,24 @@ rule BFMAP_gen:
             --binary_grm_file {params.grm} \
             --heritability $H2 \
             --covariate_file {input.covar} \
+            --min_maf 0.01 --num_threads {threads} \
             --output {params.fsele}
+
+
+
+
+            ## if want QTL regional h2
+            {input.appath} --compute_grm 2 --binary_genotype_file {params.bfile} \
+            --snp_info_file tmp_{wildcards.region}.csv \
+            --min_maf 0.01 --num_threads {threads} \
+            --output_file tmp_{wildcards.region}
+
+            {input.appath} --varcomp --phenotype_file tmp_pheno.csv --trait_name {wildcards.pheno} \
+            --binary_grm_file tmp_{wildcards.region} \
+            --covariate_file {input.covar} \
+            --min_maf 0.01 --num_threads {threads} \
+            --output {params.varcomp}
+
 
         ) &> {log} || true
         """
@@ -181,6 +193,7 @@ rule BFMAP_gen:
 #         covar = "INTERMEDIATE/covar/covar_bfmap.csv",
 #     output:
 #         varcomp = "RESULTS/BFMAPsss/{pheno}/VC/{region}_{pheno}_{gen}.varcomp.csv",
+#         varcomp_g = "RESULTS/BFMAPsss/{pheno}/VC/{region}_{pheno}_{gen}_global.varcomp.csv",
 #         fsele = protected("RESULTS/BFMAPsss/{pheno}/FS/{region}_{pheno}_{gen}.csv"),
 #     log: "LOGS/BFMAPsss/{pheno}/{region}_{pheno}_{gen}.log"  
 #     benchmark: "LOGS/BFMAPsss/{pheno}/{region}_{pheno}_{gen}.bench" 
@@ -220,19 +233,18 @@ rule BFMAP_gen:
 #             --output_file tmp_{wildcards.region}
 
 
-#             ## run BFMAP
+            # ## run BFMAP
+            # ## h2 estimation
+            # {input.appath} --varcomp --phenotype_file tmp_pheno.csv --trait_name {wildcards.pheno} \
+            # --binary_grm_file {params.grm} \
+            # --covariate_file {input.covar} \
+            # --output {params.varcomp}_global
 
-#             ## regional QTL h2 estimation
-#             {input.appath} --varcomp --phenotype_file tmp_pheno.csv --trait_name {wildcards.pheno} \
-#             --binary_grm_file tmp_{wildcards.region} \
-#             --covariate_file {input.covar} \
-#             --output {params.varcomp}
-
-#             H2=$(grep "proportion" {output.varcomp} | cut -d',' -f2)
-#             echo heritability: $H2
+            # H2=$(grep "proportion" {output.varcomp_g} | cut -d',' -f2)
+            # echo heritability: $H2
 
 
-#             # forward selection for fine mapping
+#             # sss for fine mapping
 #             {input.appath} --sss --phenotype_file tmp_pheno.csv --trait_name {wildcards.pheno} \
 #             --binary_genotype_file {params.bfile} \
 #             --snp_info_file tmp_{wildcards.region}.csv \
@@ -404,7 +416,7 @@ rule prep_FINEMAP:
     shell:
         """
         set +o pipefail
-        (Rscript --vanilla {input.script} {input.qtl} {input.mlma} {input.fam} {input.id} {input.pheno} {params.outp} {threads}) &> {log} || true
+        (Rscript --vanilla {input.script} {input.qtl} {input.mlma} {input.fam} {input.id} {input.pheno} {params.outp}) &> {log} || true
         """
 
 rule LDstore:
@@ -419,7 +431,7 @@ rule LDstore:
     log: "LOGS/LDstore/{pheno}/{gen}.log"  
     benchmark: "LOGS/LDstore/{pheno}/{gen}.bench" 
     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
-    threads: 10
+    threads: 20
     resources:
         mem_mb = lambda wildcards, attempt: int(attempt) *100* 1000,
         time = lambda wildcards, attempt: int(attempt) * 24*60,
@@ -459,32 +471,32 @@ rule FINEMAP_sss:
         ) &> {log}
         """
 
-rule FINEMAP_cond:
-    input:
-        softpathFM = "SCRIPTS/packages/finemap_v1.4.2_x86_64/finemap",
-        masterFM = "RESULTS/FINEMAP/{pheno}/{gen}/cond/masterFM",
-        bgen = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen"),
-        bgi = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen.bgi"),
-        sample = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.sample"),
-        dummy = "RESULTS/FINEMAP/{pheno}/{gen}/LDstore.done",
-    output:
-        dummy = "RESULTS/FINEMAP/{pheno}/{gen}/cond/FINEMAP.done",
-    log: "LOGS/FINEMAP/{pheno}/{gen}.log"  
-    benchmark: "LOGS/FINEMAP/{pheno}/{gen}.bench" 
-    conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
-    threads: 1
-    resources:
-        mem_mb = lambda wildcards, attempt: int(attempt) *50* 1000,
-        time = lambda wildcards, attempt: int(attempt) * 24*60,
-        temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
-    shell:
-        """
-        (
-         touch {output.dummy}
-         {input.softpathFM} --in-files {input.masterFM} --cond
+# rule FINEMAP_cond:
+#     input:
+#         softpathFM = "SCRIPTS/packages/finemap_v1.4.2_x86_64/finemap",
+#         masterFM = "RESULTS/FINEMAP/{pheno}/{gen}/cond/masterFM",
+#         bgen = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen"),
+#         bgi = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.bgen.bgi"),
+#         sample = ("INTERMEDIATE/beagleimpute/bcftools_lifted_imputed_gt_QC.sample"),
+#         dummy = "RESULTS/FINEMAP/{pheno}/{gen}/LDstore.done",
+#     output:
+#         dummy = "RESULTS/FINEMAP/{pheno}/{gen}/cond/FINEMAP.done",
+#     log: "LOGS/FINEMAP/{pheno}/{gen}.log"  
+#     benchmark: "LOGS/FINEMAP/{pheno}/{gen}.bench" 
+#     conda: "IMAGE_SCM" #"environments/IMAGE_SCM.yaml"
+#     threads: 1
+#     resources:
+#         mem_mb = lambda wildcards, attempt: int(attempt) *50* 1000,
+#         time = lambda wildcards, attempt: int(attempt) * 24*60,
+#         temp = lambda wildcards,attempt: "${TMP_LOCAL}" if int(attempt)==1 else 'TEMP/'
+#     shell:
+#         """
+#         (
+#          touch {output.dummy}
+#          {input.softpathFM} --in-files {input.masterFM} --cond
          
-        ) &> {log}
-        """
+#         ) &> {log}
+#         """
 
 
 
@@ -497,7 +509,7 @@ rule plot_FINEMAP:
         mlma = "RESULTS/gcta/mlma_impute/{gen}/{pheno}_{gen}.mlma",
         dummy1 = "RESULTS/FINEMAP/{pheno}/{gen}/LDstore.done",
         dummy2 = "RESULTS/FINEMAP/{pheno}/{gen}/sss/FINEMAP.done",
-        dummy3 = "RESULTS/FINEMAP/{pheno}/{gen}/cond/FINEMAP.done",
+        # dummy3 = "RESULTS/FINEMAP/{pheno}/{gen}/cond/FINEMAP.done",
     output:
         credset = "RESULTS/FINEMAP/{pheno}/{gen}/sss/credsets.txt",
         geneprob = "RESULTS/FINEMAP/{pheno}/{gen}/sss/geneprobs.txt",
@@ -517,6 +529,7 @@ rule plot_FINEMAP:
         ) &> {log}
         """
 
+# run after FINEMAP on all QTLs
 def get_all_comparison_files(wildcards):
     """
     Collect both FS and SSS files for all phenotypes

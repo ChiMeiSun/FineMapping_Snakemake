@@ -13,16 +13,28 @@ colnames(pheno)
 tt = c('EN1','EN2','EN3','EN4','EN5','EN6','EN7','EN8','EN10','EN11','EN12','EN13','BW32','EW30','EW40','EW50','EW70')
 
 
-#### get h2 ####
-path = args[4]
-gen = "all"
-datah2 = data.table(path = paste0(path,"/",tt,"/",gen,".hsq"), pheno = tt, h2 = NA)
+#### get GCTA reml h2 ####
+# path = args[4]
+# gen = "all"
+# datah2 = data.table(path = paste0(path,"/",tt,"/",gen,".hsq"), pheno = tt, h2 = NA)
 
-for ( i in 1:nrow(datah2)){
-    tmp = fread(datah2$path[i], fill=TRUE)
-    datah2$h2[i] = tmp[Source == "V(G)/Vp",Variance]
-}
+# for ( i in 1:nrow(datah2)){
+#     tmp = fread(datah2$path[i], fill=TRUE)
+#     datah2$h2[i] = tmp[Source == "V(G)/Vp",Variance]
+# }
 
+#### get BFMAP estimated h2 ####
+filesp_bfmap <- sprintf("RESULTS/BFMAP/%s/VC/", tt)
+# "RESULTS/BFMAP/BW32/VC/xxx_BW32_all_global.varcomp.csv",
+datah2 <- rbindlist(lapply(filesp_bfmap, function (p) {
+  cmd <- sprintf("ls %s | grep global", p)
+  pp <- paste0(p, system(cmd, intern = TRUE)[1])
+
+  dat <- data.table(pheno = strsplit(p, "/")[[1]][3])
+  dat$h2 <- fread(pp, nrows = 2)[2,2][[1]]
+  
+  dat
+}))
 
 #### get genetic correlations ####
   path = args[3]

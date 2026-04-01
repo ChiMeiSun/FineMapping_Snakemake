@@ -20,7 +20,7 @@ wildcard_constraints:
 
 rule all:
     input:
-        # "PLOTS/supdata/pheno_descriptive.pdf",
+        "PLOTS/supdata/pheno_descriptive.pdf",
         # "RESULTS/publish/pheno_descriptive.txt",
         # "PLOTS/publish/PhenoCor.png",
         # expand("PLOTS/publish/fig{num}.png", num=['3','4','5']),

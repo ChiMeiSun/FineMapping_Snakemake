@@ -43,8 +43,7 @@ colnames(genes) <- c("chr","start","end","gene_id","gene_id_ver","gene_name","st
 qtls <- fread(qtlsp)
 qtls[, name := sprintf("%s:%s-%s", Chr, exdst, exded)]
 # get the middle one if multiple QTLs
-trueqtls <- qtls[, .SD[which(abs(exdst - median(exdst)) == min(abs(exdst - median(exdst))))[1]], by = Chr]
-
+trueqtls <- qtls[, .SD[which.min(diff)], by = Chr]
 
 fs <- lapply(filesp, function(p) {
     fread(p, header = TRUE)

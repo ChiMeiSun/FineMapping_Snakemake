@@ -39,13 +39,15 @@ tab[, exdst := bp - 1e6]
 tab[, exded := edbp + 1e6]
 
 if (pheno %in% testphenos) {
+
     tab <- data.table(Chr = tab$Chr,
-                exdst = c(tab$exdst, tab$exdst - 1e6, tab$exdst + 1e6),
-                exded = c(tab$exded, tab$exded + 1e6, tab$exded - 1e6)
+                exdst = c(tab$exdst, tab$exdst - 1e6, tab$exdst - 2e6),
+                exded = c(tab$exded, tab$exded + 1e6, tab$exded + 2e6)
     )
 }
 
 tab[, diff := exded - exdst]
+
 
 # for (c in chrs){
 #     if (tab[Chr == c, diff] > maxlength){
@@ -70,7 +72,5 @@ tab[, diff := exded - exdst]
 #     }
 # }
 tab <- tab[order(Chr, exdst)]
-
-
 
 write.table(tab, outxt, quote=FALSE, col.names=TRUE, row.names=FALSE, sep="\t")

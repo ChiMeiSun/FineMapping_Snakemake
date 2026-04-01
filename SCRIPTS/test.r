@@ -161,3 +161,29 @@ calc_gene_pip <- function(gtf, pip, model, method = NULL, ext = 3000) {
   # Return the output
   return(output)
 }
+
+
+
+  tt <- c('EN4','EN5','EN6','EN7','EN8')
+  path <- "RESULTS/BFMAP"
+  bfilter_cs <- rbindlist(lapply(tt, function (p) {
+
+    cred_i <- fread(sprintf("%s/%s/credsets_%s_all.txt", path, p, p))
+    kept_signals <- cred_i[SNPindex == 0 & Pval <= pvalue_threshold, signal]
+    filter_cs_i <- cred_i[signal %in% kept_signals, ]
+    filter_cs_i[, pheno := p]
+  }))
+
+
+  path <- "RESULTS/FINEMAP"
+  # "RESULTS/FINEMAP/EN13/all/sss/credsets.txt"
+  ffilter_cs <- rbindlist(lapply(tt, function (p) {
+
+    cred_i <- fread(sprintf("%s/%s/all/sss/credsets.txt", path, p))
+    cred_i <- cred_i[prob > 0 & log10bf >= 2,]
+    cred_i[, pheno := p]
+  }))
+
+bfilter_cs <- bfilter_cs[, md := "bfmap"]
+tab <- bfilter_cs[ffilter_cs, on = .(SNPname, pheno), nomatch = NA]
+tab[, .N, by = .(pheno, md)]

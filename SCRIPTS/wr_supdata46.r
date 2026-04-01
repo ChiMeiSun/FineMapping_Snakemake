@@ -27,7 +27,7 @@ dat <- setNames(lapply(files, fread), sheet_names)
 if (mark == "gp") {
     dat <- lapply(dat, function(d) {
         d <- d[, -c("start_ext", "end_ext", "mid")]
-        setorder(d, chr, gene_id, -summed_prob_re)
+        setorder(d, chr, -summed_prob_re, gene_id)
     })
 }
 write_xlsx(dat, path = args[1])
