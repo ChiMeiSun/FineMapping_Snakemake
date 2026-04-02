@@ -21,29 +21,29 @@ wildcard_constraints:
 rule all:
     input:
         "PLOTS/supdata/pheno_descriptive.pdf",
-        # "RESULTS/publish/pheno_descriptive.txt",
-        # "PLOTS/publish/PhenoCor.png",
-        # expand("PLOTS/publish/fig{num}.png", num=['3','4','5']),
-# 
-        # "PLOTS/manplot/metaGWAS/ENs_all.png",
-        # expand("PLOTS/manplot/mlma/{gen}/{pheno}_{gen}.png", pheno=phenos, gen = gens2),
-        # expand("PLOTS/manplot/mlma_impute/{gen}/{pheno}_{gen}.png", pheno=phenos,gen = gens2),
-        # expand("PLOTS/manplot/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno=['EW30','EW40','EW50','EW70'], covt='BW32',gen=gens2),
-        # expand("PLOTS/manplot/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno=['EW30','EW40','EW50','EW70'], covt='BW32',gen=gens2),
-        # expand("PLOTS/manplot/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno='BW32',covt=['EW30','EW40','EW50','EW70'],gen=gens2),
-        # expand("PLOTS/manplot/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno='BW32',covt=['EW30','EW40','EW50','EW70'],gen=gens2),
-        # expand("PLOTS/manplot/combine/arrimp/{pheno}.png", pheno=phenos),
-        # expand("PLOTS/manplot/combine/arrimp_cov/{pheno}cov{covt}.png", pheno=['EW30','EW40','EW50','EW70'], covt='BW32'),
-        # expand("PLOTS/manplot/combine/arrimp_cov/{pheno}cov{covt}.png", pheno='BW32', covt=['EW30','EW40','EW50','EW70']),
-        # expand("RESULTS/gcta/sigSNP/mlma/{gen}/{pheno}_{gen}.txt", pheno=phenos, gen = gens2),
-        # expand("RESULTS/gcta/sigSNP/mlma_impute/{gen}/{pheno}_{gen}.txt", pheno=phenos,gen = gens2),
-# 
-        # expand("PLOTS/BFMAP/{pheno}/{pheno}_{gen}.pdf", pheno=phenos, gen='all'),
-        # expand("PLOTS/BFMAP/{pheno}/recalc_{pheno}_{gen}.pdf", pheno=['ENs','BWEWs'], gen='all'),
-# 
-        # expand("PLOTS/FINEMAP/{pheno}/{gen}/data.pdf", pheno=phenos, gen='all'),
-# 
-        # expand("RESULTS/supdata/SupplementaryData{num}.txt", num=['1']),
+        "RESULTS/publish/pheno_descriptive.txt",
+        "PLOTS/publish/PhenoCor.png",
+        expand("PLOTS/publish/fig{num}.png", num=['3','4','5']),
+
+        "PLOTS/manplot/metaGWAS/ENs_all.png",
+        expand("PLOTS/manplot/mlma/{gen}/{pheno}_{gen}.png", pheno=phenos, gen = gens2),
+        expand("PLOTS/manplot/mlma_impute/{gen}/{pheno}_{gen}.png", pheno=phenos,gen = gens2),
+        expand("PLOTS/manplot/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno=['EW30','EW40','EW50','EW70'], covt='BW32',gen=gens2),
+        expand("PLOTS/manplot/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno=['EW30','EW40','EW50','EW70'], covt='BW32',gen=gens2),
+        expand("PLOTS/manplot/mlma_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno='BW32',covt=['EW30','EW40','EW50','EW70'],gen=gens2),
+        expand("PLOTS/manplot/mlmaimp_cov/{gen}/{pheno}cov{covt}_{gen}.png", pheno='BW32',covt=['EW30','EW40','EW50','EW70'],gen=gens2),
+        expand("PLOTS/manplot/combine/arrimp/{pheno}.png", pheno=phenos),
+        expand("PLOTS/manplot/combine/arrimp_cov/{pheno}cov{covt}.png", pheno=['EW30','EW40','EW50','EW70'], covt='BW32'),
+        expand("PLOTS/manplot/combine/arrimp_cov/{pheno}cov{covt}.png", pheno='BW32', covt=['EW30','EW40','EW50','EW70']),
+        expand("RESULTS/gcta/sigSNP/mlma/{gen}/{pheno}_{gen}.txt", pheno=phenos, gen = gens2),
+        expand("RESULTS/gcta/sigSNP/mlma_impute/{gen}/{pheno}_{gen}.txt", pheno=phenos,gen = gens2),
+
+        expand("PLOTS/BFMAP/{pheno}/{pheno}_{gen}.pdf", pheno=phenos, gen='all'),
+        expand("PLOTS/BFMAP/{pheno}/recalc_{pheno}_{gen}.pdf", pheno=['ENs','BWEWs'], gen='all'),
+
+        expand("PLOTS/FINEMAP/{pheno}/{gen}/data.pdf", pheno=phenos, gen='all'),
+
+        expand("RESULTS/supdata/SupplementaryData{num}.txt", num=['1']),
         expand("RESULTS/supdata/SupplementaryData{num}.xlsx", num=['2','3','4','5','6']),
 
 
